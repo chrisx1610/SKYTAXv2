@@ -21,7 +21,8 @@ class _SettingsSectionState extends State<SettingsSection> {
   late final TextEditingController _taxRate;
   late final TextEditingController _airportCode;
   late final TextEditingController _airportName;
-  bool _saving = false;
+  bool _savingRates = false;
+  bool _savingAirport = false;
 
   List<DosaTariff> _tariffs = const [];
   bool _loadingTariffs = true;
@@ -104,51 +105,46 @@ class _SettingsSectionState extends State<SettingsSection> {
     }
   }
 
-  /// Guarda de una vez la tasa por pasajero y el aeropuerto del terminal.
-  ///
-  /// El aeropuerto se aplica primero porque cambiarlo abre otra base de
-  /// datos: así la tasa queda escrita en el aeropuerto que terminó
-  /// seleccionado y no en el que se acaba de abandonar.
-  ///
-  /// La tasa solo se escribe si fue editada. Tras cambiar de aeropuerto el
-  /// campo todavía muestra la tasa del anterior, y reenviarla sin más
-  /// pisaría la del nuevo con un importe que nadie tecleó.
-  Future<void> _save() async {
+  Future<void> _saveRates() async {
     final AppController controller = context.read<AppController>();
     final AppStrings s = controller.strings;
-
     final double? taxRate = double.tryParse(_taxRate.text.trim());
     if (taxRate == null || taxRate <= 0) {
       _snack(s.invalidNumber);
       return;
     }
+    setState(() => _savingRates = true);
+    try {
+      await controller.updateRates(newTaxRate: taxRate);
+      if (mounted) _snack(s.settingsSaved);
+    } catch (e, st) {
+      AppLogger.instance.error('No se pudo guardar la configuración', e, st);
+      if (mounted) _snack(s.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _savingRates = false);
+    }
+  }
+
+  Future<void> _saveAirport() async {
+    final AppController controller = context.read<AppController>();
+    final AppStrings s = controller.strings;
     final String code = _airportCode.text.trim().toUpperCase();
     final String name = _airportName.text.trim();
     if (code.isEmpty || name.isEmpty) {
       _snack(s.requiredField);
       return;
     }
-
-    final bool airportChanged = code != controller.config.airportCode ||
-        name != controller.config.airportName;
-    final bool rateChanged = taxRate != controller.taxRate;
-
-    setState(() => _saving = true);
+    setState(() => _savingAirport = true);
     try {
-      if (airportChanged) await controller.changeAirport(code, name);
-      if (rateChanged) await controller.updateRates(newTaxRate: taxRate);
-      if (airportChanged) {
-        // La tasa y las tarifas son propias de cada aeropuerto: al cambiar
-        // de base hay que releerlas para no mostrar las de la anterior.
-        _taxRate.text = '${controller.taxRate}';
-        await _loadTariffs();
-      }
+      await controller.changeAirport(code, name);
+      _taxRate.text = '${controller.taxRate}';
+      await _loadTariffs();
       if (mounted) _snack(s.settingsSaved);
     } catch (e, st) {
-      AppLogger.instance.error('No se pudo guardar la configuración', e, st);
+      AppLogger.instance.error('No se pudo cambiar el aeropuerto', e, st);
       if (mounted) _snack(s.errorGeneric);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _savingAirport = false);
     }
   }
 
@@ -173,20 +169,6 @@ class _SettingsSectionState extends State<SettingsSection> {
               _ratesCard(s),
               const SizedBox(height: 24),
               _narrowCard(child: _airportCard(s)),
-              const SizedBox(height: 24),
-              // Un único botón para toda la sección: la tasa y el aeropuerto
-              // se guardan juntos. Las tarifas DOSA quedan fuera porque cada
-              // fila se confirma en su propio diálogo.
-              _narrowCard(
-                child: SizedBox(
-                  height: 60,
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.save_rounded),
-                    label: Text(s.save),
-                    onPressed: _saving ? null : _save,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -229,6 +211,15 @@ class _SettingsSectionState extends State<SettingsSection> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(labelText: s.taxRateField),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 60,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.save_rounded),
+                        label: Text(s.save),
+                        onPressed: _savingRates ? null : _saveRates,
+                      ),
                     ),
                   ],
                 ),
@@ -318,6 +309,15 @@ class _SettingsSectionState extends State<SettingsSection> {
             Text(
               s.airportChangedNote,
               style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 60,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: Text(s.save),
+                onPressed: _savingAirport ? null : _saveAirport,
+              ),
             ),
           ],
         ),
