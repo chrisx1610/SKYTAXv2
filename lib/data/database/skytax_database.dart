@@ -46,7 +46,7 @@ class SkyTaxDatabase {
 
     _db = await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) => _createSchema(db, code),
       onUpgrade: _upgrade,
@@ -149,7 +149,31 @@ class SkyTaxDatabase {
       // DROP COLUMN), de modo que basta con ampliar la tabla.
       await db.execute('ALTER TABLE invoices ADD COLUMN valid_until TEXT');
     }
+    if (oldVersion < 7) {
+      // v7: la flota de ejemplo de SVMI deja de sembrarse. Se retira de las
+      // bases que ya la tienen, pero solo si sigue tal como salió de fábrica:
+      // si la matrícula fue editada o se le cambió el modelo o la capacidad,
+      // es una aeronave real que el aeropuerto dio de alta y se conserva.
+      for (final (String reg, String model, int cap) in _factoryFleet) {
+        await db.delete(
+          'aircraft',
+          where: 'registration = ? AND model = ? AND capacity = ?',
+          whereArgs: [reg, model, cap],
+        );
+      }
+    }
   }
+
+  /// Flota de ejemplo que las versiones anteriores sembraban en SVMI.
+  /// Se conserva únicamente para poder reconocerla y retirarla en la v7.
+  static const List<(String, String, int)> _factoryFleet = [
+    ('YV1234', 'AC90', 7),
+    ('YV2850', 'Embraer E190', 104),
+    ('YV3016', 'Boeing 737-200', 120),
+    ('YV3224', 'Airbus A340-300', 250),
+    ('YV1004', 'McDonnell Douglas MD-82', 147),
+    ('YV3389', 'Boeing 737-300', 140),
+  ];
 
   /// Aeronaves con datos cargados que aún no han pagado.
   static const String _createPendingPaymentsSql = '''
@@ -256,23 +280,10 @@ class SkyTaxDatabase {
       'password_hash': hashPassword('123456789'),
     });
 
-    if (airportCode == 'SVMI') {
-      const List<(String, String, int)> fleet = [
-        ('YV1234', 'AC90', 7),
-        ('YV2850', 'Embraer E190', 104),
-        ('YV3016', 'Boeing 737-200', 120),
-        ('YV3224', 'Airbus A340-300', 250),
-        ('YV1004', 'McDonnell Douglas MD-82', 147),
-        ('YV3389', 'Boeing 737-300', 140),
-      ];
-      for (final (String reg, String model, int cap) in fleet) {
-        await db.insert('aircraft', {
-          'registration': reg,
-          'model': model,
-          'capacity': cap,
-        });
-      }
-    }
+    // La flota no se siembra: cada aeropuerto carga sus propias aeronaves
+    // desde el panel de administración. Una base recién creada arranca sin
+    // ninguna, de modo que toda matrícula consultada se considera foránea
+    // hasta que un administrador la registre.
 
     await db.insert('audit_log', {
       'created_at': DateTime.now().toIso8601String(),
