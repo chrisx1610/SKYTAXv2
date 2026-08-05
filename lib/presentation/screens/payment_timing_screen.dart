@@ -5,6 +5,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
+import '../../domain/dosa_schedule.dart';
 import '../../domain/tax_calculator.dart';
 import '../state/app_controller.dart';
 import '../widgets/kiosk_widgets.dart';
@@ -29,11 +30,16 @@ class PaymentTimingScreen extends StatefulWidget {
 class _PaymentTimingScreenState extends State<PaymentTimingScreen> {
   bool _saving = false;
 
-  /// Pagar ahora: se ofrece elegir el tramo de permanencia.
+  /// Pagar ahora: se liquida la deuda con el tramo que corresponda.
   ///
-  /// La pantalla de tarifas solo tiene sentido si la aeronave paga DOSA y su
-  /// modelo está tabulado; en caso contrario no hay importes que mostrar y se
-  /// va directo al resumen, que ya advierte de la tarifa faltante.
+  /// Elegir tramo solo tiene sentido para quien paga en el momento y todavía
+  /// no acumuló permanencia. Si la aeronave venía difiriendo el pago, el
+  /// tramo ya quedó fijado por el tiempo transcurrido desde su registro y no
+  /// es negociable: se va directo al resumen.
+  ///
+  /// La pantalla de tarifas también se omite cuando el modelo no está
+  /// tabulado, porque no hay importes que ofrecer; el resumen ya advierte de
+  /// la tarifa faltante.
   Future<void> _payNow() async {
     final AppController controller = context.read<AppController>();
     final TaxQuote quote = widget.quote;
@@ -52,12 +58,33 @@ class _PaymentTimingScreenState extends State<PaymentTimingScreen> {
     if (!mounted) return;
 
     final DosaTariff? found = tariff;
+    final DosaBracket? settled = quote.dosaBracket;
+
+    final Widget next;
+    if (quote.elapsed > Duration.zero && settled != null) {
+      // Tramo ya determinado por la permanencia acumulada. Se reconstruye la
+      // cotización con ese mismo tramo —el importe no cambia— para que el
+      // resumen pueda anticipar hasta cuándo quedará cubierta la estadía.
+      // Si la tarifa no se pudo releer se conserva la cotización original
+      // antes que arriesgar un importe en cero.
+      next = SummaryScreen(
+        quote: found == null
+            ? quote
+            : AppController.calculator.withBracket(
+                quote,
+                tariff: found,
+                bracket: settled,
+                paidAt: DateTime.now(),
+              ),
+      );
+    } else if (found == null) {
+      next = SummaryScreen(quote: quote);
+    } else {
+      next = DosaBracketScreen(quote: quote, tariff: found);
+    }
+
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => found == null
-            ? SummaryScreen(quote: quote)
-            : DosaBracketScreen(quote: quote, tariff: found),
-      ),
+      MaterialPageRoute<void>(builder: (_) => next),
     );
   }
 
