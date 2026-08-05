@@ -149,31 +149,10 @@ class SkyTaxDatabase {
       // DROP COLUMN), de modo que basta con ampliar la tabla.
       await db.execute('ALTER TABLE invoices ADD COLUMN valid_until TEXT');
     }
-    if (oldVersion < 7) {
-      // v7: la flota de ejemplo de SVMI deja de sembrarse. Se retira de las
-      // bases que ya la tienen, pero solo si sigue tal como salió de fábrica:
-      // si la matrícula fue editada o se le cambió el modelo o la capacidad,
-      // es una aeronave real que el aeropuerto dio de alta y se conserva.
-      for (final (String reg, String model, int cap) in _factoryFleet) {
-        await db.delete(
-          'aircraft',
-          where: 'registration = ? AND model = ? AND capacity = ?',
-          whereArgs: [reg, model, cap],
-        );
-      }
-    }
+    // v7: la flota de ejemplo de SVMI dejó de sembrarse. No hay nada que
+    // migrar —el esquema no cambió—, así que las bases anteriores conservan
+    // las aeronaves que ya tuvieran; se dan de baja desde el panel.
   }
-
-  /// Flota de ejemplo que las versiones anteriores sembraban en SVMI.
-  /// Se conserva únicamente para poder reconocerla y retirarla en la v7.
-  static const List<(String, String, int)> _factoryFleet = [
-    ('YV1234', 'AC90', 7),
-    ('YV2850', 'Embraer E190', 104),
-    ('YV3016', 'Boeing 737-200', 120),
-    ('YV3224', 'Airbus A340-300', 250),
-    ('YV1004', 'McDonnell Douglas MD-82', 147),
-    ('YV3389', 'Boeing 737-300', 140),
-  ];
 
   /// Aeronaves con datos cargados que aún no han pagado.
   static const String _createPendingPaymentsSql = '''
@@ -261,7 +240,7 @@ class SkyTaxDatabase {
   }
 
   /// Datos iniciales: configuración y usuario administrador.
-  /// Las aeronaves de demostración solo se cargan para SVMI (Maiquetía).
+  /// No se cargan aeronaves: la flota se da de alta desde el panel.
   Future<void> _seed(Database db, String airportCode) async {
     // La DOSA no se siembra: sus importes se cargan desde el panel en la
     // tabla `dosa_tariffs`, por modelo y tramo de permanencia.
