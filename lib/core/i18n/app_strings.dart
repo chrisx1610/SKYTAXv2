@@ -114,6 +114,7 @@ class AppStrings {
     required this.payTimingTitle,
     required this.payNow,
     required this.payLater,
+    required this.payLaterUnavailable,
     required this.paymentDeferred,
     required this.pendingSince,
     required this.stayLabel,
@@ -283,6 +284,9 @@ class AppStrings {
   final String payTimingTitle;
   final String payNow;
   final String payLater;
+
+  /// Motivo por el que no se puede volver a diferir: ya hay un pago pendiente.
+  final String payLaterUnavailable;
   final String paymentDeferred;
   final String pendingSince;
   final String stayLabel;
@@ -459,6 +463,7 @@ class AppStrings {
     payTimingTitle: '¿Desea pagar ahora?',
     payNow: 'Pagar ahora',
     payLater: 'Pagar más tarde',
+    payLaterUnavailable: 'Ya tiene un pago pendiente',
     paymentDeferred: 'Aeronave registrada como pendiente de pago',
     pendingSince: 'Pendiente desde',
     stayLabel: 'Permanencia',
@@ -615,6 +620,7 @@ class AppStrings {
     payTimingTitle: 'Do you want to pay now?',
     payNow: 'Pay now',
     payLater: 'Pay later',
+    payLaterUnavailable: 'Payment already pending',
     paymentDeferred: 'Aircraft recorded as pending payment',
     pendingSince: 'Pending since',
     stayLabel: 'Length of stay',

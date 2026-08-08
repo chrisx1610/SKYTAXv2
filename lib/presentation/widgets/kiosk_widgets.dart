@@ -357,6 +357,7 @@ class BigChoiceCard extends StatelessWidget {
     required this.label,
     this.sublabel,
     required this.onTap,
+    this.enabled = true,
   }) : assert(icon != null || image != null, 'Se requiere icon o image');
 
   final IconData? icon;
@@ -368,20 +369,29 @@ class BigChoiceCard extends StatelessWidget {
   final String? sublabel;
   final VoidCallback onTap;
 
+  /// Cuando es `false` la tarjeta se apaga —fondo gris, sin relieve y con el
+  /// texto atenuado— y deja de responder al toque, de modo que se vea de un
+  /// vistazo que la opción no está disponible.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color muted = scheme.onSurface.withValues(alpha: 0.38);
+
     return _PressScale(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       builder: (pressed) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: enabled ? Colors.white : scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: pressed ? AppTheme.brand : scheme.outlineVariant,
             width: pressed ? 2 : 1,
           ),
-          boxShadow: AppTheme.softShadow(opacity: pressed ? 0.05 : 0.09),
+          boxShadow: enabled
+              ? AppTheme.softShadow(opacity: pressed ? 0.05 : 0.09)
+              : null,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 34),
         child: Column(
@@ -391,30 +401,44 @@ class BigChoiceCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.brandGradient,
+                    gradient: enabled ? AppTheme.brandGradient : null,
+                    color: enabled ? null : scheme.outlineVariant,
                     borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.brand.withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    boxShadow: enabled
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.brand.withValues(alpha: 0.28),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ]
+                        : null,
                   ),
-                  child: Icon(icon, size: 52, color: Colors.white),
+                  child: Icon(
+                    icon,
+                    size: 52,
+                    color: enabled ? Colors.white : muted,
+                  ),
                 ),
             const SizedBox(height: 20),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: enabled ? scheme.onSurface : muted,
+              ),
             ),
             if (sublabel != null) ...[
               const SizedBox(height: 6),
               Text(
                 sublabel!,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: scheme.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: enabled ? scheme.onSurfaceVariant : muted,
+                ),
               ),
             ],
           ],

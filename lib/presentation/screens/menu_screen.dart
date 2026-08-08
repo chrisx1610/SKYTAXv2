@@ -28,14 +28,14 @@ class _MenuScreenState extends State<MenuScreen> {
   final TextEditingController _passengers = TextEditingController();
   bool _loading = false;
 
-  /// Último modelo rellenado automáticamente; permite distinguirlo de un
-  /// valor escrito a mano para no pisar lo que el usuario haya tecleado.
-  String? _autoFilledModel;
+  /// Modelo impuesto por el registro de la aeronave. Mientras tenga valor, el
+  /// campo de tipo de aeronave va en solo lectura.
+  String? _lockedModel;
 
   @override
   void initState() {
     super.initState();
-    _registration.addListener(_autofillModel);
+    _registration.addListener(_lockModelIfRegistered);
   }
 
   @override
@@ -46,30 +46,41 @@ class _MenuScreenState extends State<MenuScreen> {
     super.dispose();
   }
 
-  /// Si la matrícula corresponde a una aeronave basada en este aeropuerto,
-  /// rellena el tipo de aeronave con el modelo registrado.
-  Future<void> _autofillModel() async {
+  /// Rellena el tipo de aeronave y bloquea el campo cuando la matrícula ya
+  /// está registrada, sea en la flota del aeropuerto o como pago pendiente.
+  ///
+  /// Dejarlo editable abriría la puerta a declarar un modelo más barato que
+  /// el registrado: la DOSA se cobra según la fila que ese modelo tenga en la
+  /// tabla de tarifas, así que cambiarlo al volver a pagar rebajaría la deuda.
+  Future<void> _lockModelIfRegistered() async {
     final String registration = _registration.text.trim().toUpperCase();
     final AppController controller = context.read<AppController>();
-    final Aircraft? aircraft = registration.isEmpty
-        ? null
-        : await controller.aircraft.findByRegistration(registration);
+
+    Aircraft? aircraft;
+    PendingPayment? pending;
+    if (registration.isNotEmpty) {
+      aircraft = await controller.aircraft.findByRegistration(registration);
+      pending =
+          await controller.pendingPayments.findByRegistration(registration);
+    }
     if (!mounted) return;
     // La matrícula pudo cambiar mientras se consultaba la base de datos.
     if (_registration.text.trim().toUpperCase() != registration) return;
 
-    if (aircraft != null) {
-      // Solo se rellena si el campo está vacío o contiene un valor
-      // autocompletado previamente (nunca pisa lo escrito por el usuario).
-      if (_model.text.trim().isEmpty || _model.text == _autoFilledModel) {
-        _model.text = aircraft.model;
-        _autoFilledModel = aircraft.model;
+    // La flota del aeropuerto manda sobre lo declarado al diferir el pago:
+    // es el dato que dio de alta un administrador.
+    final String? registered = aircraft?.model ?? pending?.model;
+    if (registered == _lockedModel) return;
+
+    setState(() {
+      if (registered != null) {
+        _model.text = registered;
+      } else if (_model.text == _lockedModel) {
+        // La matrícula dejó de coincidir: se libera lo autocompletado.
+        _model.clear();
       }
-    } else if (_autoFilledModel != null && _model.text == _autoFilledModel) {
-      // La matrícula dejó de coincidir: se limpia el valor autocompletado.
-      _model.clear();
-      _autoFilledModel = null;
-    }
+      _lockedModel = registered;
+    });
   }
 
   Future<void> _consult() async {
@@ -95,7 +106,7 @@ class _MenuScreenState extends State<MenuScreen> {
       _registration.clear();
       _model.clear();
       _passengers.clear();
-      _autoFilledModel = null;
+      setState(() => _lockedModel = null);
     } catch (e, st) {
       AppLogger.instance.error('Error en la consulta', e, st);
       if (mounted) {
@@ -176,9 +187,20 @@ class _MenuScreenState extends State<MenuScreen> {
                 TextFormField(
                   controller: _model,
                   style: fieldStyle,
+                  // Registrada: el modelo lo fija el aeropuerto, no el
+                  // usuario. El candado y el fondo gris lo hacen evidente.
+                  readOnly: _lockedModel != null,
                   textCapitalization: TextCapitalization.characters,
                   inputFormatters: [UpperCaseTextFormatter()],
-                  decoration: _decoration(s.aircraftTypeLabel, 'AC90'),
+                  decoration:
+                      _decoration(s.aircraftTypeLabel, 'AC90').copyWith(
+                    filled: _lockedModel != null,
+                    fillColor: scheme.surfaceContainerHighest,
+                    suffixIcon: _lockedModel == null
+                        ? null
+                        : Icon(Icons.lock_outline_rounded,
+                            color: scheme.onSurfaceVariant),
+                  ),
                   validator: (value) => (value == null || value.trim().isEmpty)
                       ? s.enterAircraftType
                       : null,

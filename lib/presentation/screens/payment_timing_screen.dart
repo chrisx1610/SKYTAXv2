@@ -89,6 +89,10 @@ class _PaymentTimingScreenState extends State<PaymentTimingScreen> {
   }
 
   Future<void> _payLater() async {
+    // La tarjeta ya viene deshabilitada en ese caso; esto cubre cualquier
+    // otra vía de invocación para que la permanencia no pueda reiniciarse.
+    if (widget.quote.elapsed > Duration.zero) return;
+
     final AppController controller = context.read<AppController>();
     final AppStrings s = controller.strings;
     setState(() => _saving = true);
@@ -151,9 +155,14 @@ class _PaymentTimingScreenState extends State<PaymentTimingScreen> {
                   label: s.payNow,
                   onTap: _payNow,
                 );
+                // Quien ya difirió el pago no puede volver a diferirlo: la
+                // opción aparece apagada para que se entienda que la deuda
+                // solo se cierra pagando.
                 final Widget later = BigChoiceCard(
                   icon: Icons.schedule_send_rounded,
                   label: s.payLater,
+                  sublabel: hasStay ? s.payLaterUnavailable : null,
+                  enabled: !hasStay,
                   onTap: _payLater,
                 );
                 if (constraints.maxWidth < 620) {
