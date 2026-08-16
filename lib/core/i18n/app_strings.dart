@@ -382,7 +382,7 @@ class AppStrings {
     welcomeTouch: 'Bienvenido · Welcome',
     consultTitle: 'Datos del vuelo',
     consultSubtitle:
-        'Ingrese los datos del vuelo para los impuestos de forma automática.',
+        'Ingrese los datos del vuelo para calcular los impuestos automáticamente.',
     registrationLabel: 'Matrícula de la aeronave',
     aircraftTypeLabel: 'Tipo de aeronave',
     passengersLabel: 'Cantidad de pasajeros',
@@ -543,7 +543,8 @@ class AppStrings {
     selectLanguage: 'Select your language',
     welcomeTouch: 'Bienvenido · Welcome',
     consultTitle: 'Flight details',
-    consultSubtitle: 'Enter the flight details for the taxes automatically.',
+    consultSubtitle:
+        'Enter the flight details to calculate the taxes automatically.',
     registrationLabel: 'Aircraft registration',
     aircraftTypeLabel: 'Aircraft type',
     passengersLabel: 'Number of passengers',
