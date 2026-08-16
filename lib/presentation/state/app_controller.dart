@@ -103,6 +103,7 @@ class AppController extends ChangeNotifier {
     required String registration,
     required String typedModel,
     required int passengers,
+    int infants = 0,
   }) async {
     await _reloadSettings();
     final Aircraft? found = await aircraft.findByRegistration(registration);
@@ -124,6 +125,7 @@ class AppController extends ChangeNotifier {
       registration: registration,
       typedModel: typedModel,
       passengers: passengers,
+      infants: infants,
       aircraft: found,
       taxRate: taxRate,
       dosaTariff: tariff,
@@ -188,6 +190,7 @@ class AppController extends ChangeNotifier {
       registration: quote.registration,
       aircraftModel: quote.aircraftModel,
       passengers: quote.passengers,
+      infants: quote.infants,
       taxRate: quote.taxRate,
       taxSubtotal: quote.taxSubtotal,
       dosa: quote.dosa,

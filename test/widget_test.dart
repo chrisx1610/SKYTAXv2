@@ -83,6 +83,88 @@ void main() {
     });
   });
 
+  group('exención de infantes', () {
+    test('los infantes de 0 a 3 años no pagan la tasa aeroportuaria', () {
+      final TaxQuote quote = calculator.quote(
+        registration: 'YV1234',
+        typedModel: 'OTRO',
+        passengers: 95,
+        infants: 5,
+        aircraft: localAircraft,
+        taxRate: 15,
+      );
+      expect(quote.passengers, 95);
+      expect(quote.infants, 5);
+      expect(quote.payingPassengers, 90);
+      expect(quote.taxSubtotal, 1350);
+      expect(quote.total, 1350);
+    });
+
+    test('la DOSA no depende de los infantes: se cobra por aeronave', () {
+      final TaxQuote quote = calculator.quote(
+        registration: 'YV9999',
+        typedModel: 'B737',
+        passengers: 100,
+        infants: 10,
+        aircraft: null,
+        taxRate: 15,
+        dosaTariff: const DosaTariff(model: 'B737', upTo2Hours: 120),
+      );
+      expect(quote.taxSubtotal, 1350);
+      expect(quote.dosa, 120);
+      expect(quote.total, 1470);
+    });
+
+    test('sin infantes declarados tributan todos los pasajeros', () {
+      final TaxQuote quote = calculator.quote(
+        registration: 'YV1234',
+        typedModel: 'OTRO',
+        passengers: 95,
+        aircraft: localAircraft,
+        taxRate: 15,
+      );
+      expect(quote.infants, 0);
+      expect(quote.payingPassengers, 95);
+      expect(quote.taxSubtotal, 1425);
+    });
+
+    test('rechaza más infantes que pasajeros a bordo', () {
+      expect(
+        () => calculator.quote(
+          registration: 'YV1',
+          typedModel: 'X',
+          passengers: 3,
+          infants: 4,
+          aircraft: null,
+          taxRate: 15,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('el tramo elegido conserva la exención', () {
+      final TaxQuote base = calculator.quote(
+        registration: 'YV9999',
+        typedModel: 'B737',
+        passengers: 100,
+        infants: 10,
+        aircraft: null,
+        taxRate: 15,
+        dosaTariff: const DosaTariff(model: 'B737', upTo2Hours: 120),
+      );
+      final TaxQuote priced = calculator.withBracket(
+        base,
+        tariff: const DosaTariff(model: 'B737', oneDay: 200),
+        bracket: DosaBracket.oneDay,
+        paidAt: DateTime(2026, 1, 1, 10),
+      );
+      expect(priced.infants, 10);
+      expect(priced.payingPassengers, 90);
+      expect(priced.taxSubtotal, 1350);
+      expect(priced.total, 1550);
+    });
+  });
+
   group('Formatters', () {
     test('número de factura con relleno de ceros', () {
       expect(Formatters.invoiceNumber(1), 'FACT-000001');

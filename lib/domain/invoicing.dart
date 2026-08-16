@@ -45,11 +45,19 @@ String buildInvoiceText(Invoice invoice, AppStrings s) {
   writeln();
   writeln('${s.passengersShort}:');
   writeln('${invoice.passengers}');
+  // Los infantes viajaron pero no tributan: se detallan para que el
+  // subtotal cuadre con el total de pasajeros impreso arriba.
+  if (invoice.infants > 0) {
+    writeln();
+    writeln('${s.infantsShort}:');
+    writeln('-${invoice.infants}');
+  }
   writeln();
   writeln(_line('-'));
   writeln();
   writeln('${s.airportTaxLabel}:');
-  writeln('${invoice.passengers} x ${Formatters.money(invoice.taxRate)}');
+  writeln(
+      '${invoice.payingPassengers} x ${Formatters.money(invoice.taxRate)}');
   writeln();
   writeln('${s.subtotalLabel}:');
   writeln(Formatters.money(invoice.taxSubtotal));

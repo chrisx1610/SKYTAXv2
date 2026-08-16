@@ -26,7 +26,12 @@ class _MenuScreenState extends State<MenuScreen> {
   final TextEditingController _registration = TextEditingController();
   final TextEditingController _model = TextEditingController();
   final TextEditingController _passengers = TextEditingController();
+  final TextEditingController _infants = TextEditingController();
   bool _loading = false;
+
+  /// La casilla de infantes revela el campo con la cantidad. Mientras esté
+  /// sin marcar no viaja ningún infante y todos los pasajeros tributan.
+  bool _hasInfants = false;
 
   /// Modelo impuesto por el registro de la aeronave. Mientras tenga valor, el
   /// campo de tipo de aeronave va en solo lectura.
@@ -43,6 +48,7 @@ class _MenuScreenState extends State<MenuScreen> {
     _registration.dispose();
     _model.dispose();
     _passengers.dispose();
+    _infants.dispose();
     super.dispose();
   }
 
@@ -92,6 +98,7 @@ class _MenuScreenState extends State<MenuScreen> {
         registration: _registration.text,
         typedModel: _model.text,
         passengers: int.parse(_passengers.text.trim()),
+        infants: _hasInfants ? int.parse(_infants.text.trim()) : 0,
       );
       if (!mounted) return;
       await Navigator.of(context).push(
@@ -106,7 +113,11 @@ class _MenuScreenState extends State<MenuScreen> {
       _registration.clear();
       _model.clear();
       _passengers.clear();
-      setState(() => _lockedModel = null);
+      _infants.clear();
+      setState(() {
+        _lockedModel = null;
+        _hasInfants = false;
+      });
     } catch (e, st) {
       AppLogger.instance.error('Error en la consulta', e, st);
       if (mounted) {
@@ -218,6 +229,39 @@ class _MenuScreenState extends State<MenuScreen> {
                   },
                   onFieldSubmitted: (_) => _consult(),
                 ),
+                // Los infantes de 0 a 3 años no pagan la tasa aeroportuaria.
+                // El campo solo aparece si se declara que viajan, para no
+                // recargar el formulario en el caso habitual.
+                CheckboxListTile(
+                  value: _hasInfants,
+                  onChanged: (checked) => setState(() {
+                    _hasInfants = checked ?? false;
+                    if (!_hasInfants) _infants.clear();
+                  }),
+                  title: Text(
+                    s.infantsQuestion,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (_hasInfants)
+                  TextFormField(
+                    controller: _infants,
+                    style: fieldStyle,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: _decoration(s.infantsLabel, '2'),
+                    validator: (value) {
+                      final int? n = int.tryParse((value ?? '').trim());
+                      if (n == null || n <= 0) return s.invalidPassengers;
+                      // Un infante también ocupa plaza: no puede haber más
+                      // infantes que pasajeros a bordo.
+                      final int total =
+                          int.tryParse(_passengers.text.trim()) ?? 0;
+                      return n > total ? s.invalidInfants : null;
+                    },
+                  ),
                 const SizedBox(height: 32),
                 BigActionButton(
                   label: s.consult,

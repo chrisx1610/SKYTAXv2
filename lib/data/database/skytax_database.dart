@@ -46,7 +46,7 @@ class SkyTaxDatabase {
 
     _db = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) => _createSchema(db, code),
       onUpgrade: _upgrade,
@@ -152,6 +152,15 @@ class SkyTaxDatabase {
     // v7: la flota de ejemplo de SVMI dejó de sembrarse. No hay nada que
     // migrar —el esquema no cambió—, así que las bases anteriores conservan
     // las aeronaves que ya tuvieran; se dan de baja desde el panel.
+    if (oldVersion < 8) {
+      // v8: los infantes de 0 a 3 años quedan exentos de la tasa
+      // aeroportuaria, así que la factura guarda cuántos viajaban. Las
+      // emitidas hasta ahora no distinguían infantes: el valor por omisión
+      // deja en cero y su subtotal sigue cuadrando.
+      await db.execute(
+        'ALTER TABLE invoices ADD COLUMN infants INTEGER NOT NULL DEFAULT 0',
+      );
+    }
   }
 
   /// Aeronaves con datos cargados que aún no han pagado.
@@ -207,6 +216,7 @@ class SkyTaxDatabase {
         registration TEXT NOT NULL,
         aircraft_model TEXT NOT NULL,
         passengers INTEGER NOT NULL,
+        infants INTEGER NOT NULL DEFAULT 0,
         tax_rate REAL NOT NULL,
         tax_subtotal REAL NOT NULL,
         dosa REAL NOT NULL,

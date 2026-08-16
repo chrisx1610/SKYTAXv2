@@ -12,6 +12,7 @@ class TaxQuote {
     required this.dosa,
     required this.total,
     required this.isLocal,
+    this.infants = 0,
     this.elapsed = Duration.zero,
     this.dosaBracket,
     this.missingTariff = false,
@@ -20,7 +21,15 @@ class TaxQuote {
 
   final String registration;
   final String aircraftModel;
+
+  /// Pasajeros a bordo, infantes incluidos.
   final int passengers;
+
+  /// Pasajeros de 0 a 3 años, exentos de la tasa aeroportuaria.
+  final int infants;
+
+  /// Pasajeros que sí tributan la tasa aeroportuaria.
+  int get payingPassengers => passengers - infants;
 
   /// Tasa aeroportuaria por pasajero.
   final double taxRate;
@@ -78,6 +87,7 @@ class TaxCalculator {
     required int passengers,
     required Aircraft? aircraft,
     required double taxRate,
+    int infants = 0,
     DosaTariff? dosaTariff,
     Duration elapsed = Duration.zero,
   }) {
@@ -85,8 +95,13 @@ class TaxCalculator {
       throw ArgumentError.value(
           passengers, 'passengers', 'Debe ser mayor que cero');
     }
+    if (infants < 0 || infants > passengers) {
+      throw ArgumentError.value(
+          infants, 'infants', 'Debe estar entre cero y el total de pasajeros');
+    }
     final bool isLocal = aircraft != null;
-    final double subtotal = taxRate * passengers;
+    // Los infantes de 0 a 3 años están exentos de la tasa aeroportuaria.
+    final double subtotal = taxRate * (passengers - infants);
     final double dosa = isLocal
         ? 0
         : dosaAmount(tariff: dosaTariff, elapsed: elapsed);
@@ -94,6 +109,7 @@ class TaxCalculator {
       registration: registration.trim().toUpperCase(),
       aircraftModel: isLocal ? aircraft.model : typedModel.trim(),
       passengers: passengers,
+      infants: infants,
       taxRate: taxRate,
       taxSubtotal: subtotal,
       dosa: dosa,
@@ -124,6 +140,7 @@ class TaxCalculator {
       registration: base.registration,
       aircraftModel: base.aircraftModel,
       passengers: base.passengers,
+      infants: base.infants,
       taxRate: base.taxRate,
       taxSubtotal: base.taxSubtotal,
       dosa: dosa,

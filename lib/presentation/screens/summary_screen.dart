@@ -60,10 +60,15 @@ class SummaryScreen extends StatelessWidget {
                   SummaryRow(label: s.modelLabel, value: quote.aircraftModel),
                   SummaryRow(
                       label: s.passengersShort, value: '${quote.passengers}'),
+                  // Los infantes van aparte: no tributan, y sin verlos el
+                  // subtotal parecería no cuadrar con los pasajeros a bordo.
+                  if (quote.infants > 0)
+                    SummaryRow(
+                        label: s.infantsShort, value: '−${quote.infants}'),
                   const Divider(height: 24),
                   SummaryRow(
                     label:
-                        '${s.airportTaxLabel} (${quote.passengers} × ${Formatters.money(quote.taxRate)})',
+                        '${s.airportTaxLabel} (${quote.payingPassengers} × ${Formatters.money(quote.taxRate)})',
                     value: Formatters.money(quote.taxSubtotal),
                   ),
                   if (quote.hasDosa)

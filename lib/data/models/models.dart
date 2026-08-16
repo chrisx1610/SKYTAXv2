@@ -192,6 +192,7 @@ class Invoice {
     required this.paymentMethod,
     required this.filePath,
     required this.createdBy,
+    this.infants = 0,
     this.validUntil,
   });
 
@@ -205,7 +206,16 @@ class Invoice {
   final String airportName;
   final String registration;
   final String aircraftModel;
+
+  /// Pasajeros a bordo, infantes incluidos.
   final int passengers;
+
+  /// Pasajeros de 0 a 3 años, exentos de la tasa aeroportuaria.
+  final int infants;
+
+  /// Pasajeros por los que se cobró la tasa aeroportuaria.
+  int get payingPassengers => passengers - infants;
+
   final double taxRate;
   final double taxSubtotal;
   final double dosa;
@@ -230,6 +240,9 @@ class Invoice {
         registration: map['registration'] as String,
         aircraftModel: map['aircraft_model'] as String,
         passengers: map['passengers'] as int,
+        // Las facturas anteriores a la columna `infants` no llevaban
+        // infantes: todos sus pasajeros tributaron.
+        infants: (map['infants'] as int?) ?? 0,
         taxRate: (map['tax_rate'] as num).toDouble(),
         taxSubtotal: (map['tax_subtotal'] as num).toDouble(),
         dosa: (map['dosa'] as num).toDouble(),
@@ -251,6 +264,7 @@ class Invoice {
         'registration': registration,
         'aircraft_model': aircraftModel,
         'passengers': passengers,
+        'infants': infants,
         'tax_rate': taxRate,
         'tax_subtotal': taxSubtotal,
         'dosa': dosa,
@@ -270,6 +284,7 @@ class Invoice {
         registration: registration,
         aircraftModel: aircraftModel,
         passengers: passengers,
+        infants: infants,
         taxRate: taxRate,
         taxSubtotal: taxSubtotal,
         dosa: dosa,

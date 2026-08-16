@@ -26,6 +26,10 @@ class AppStrings {
     required this.registrationLabel,
     required this.aircraftTypeLabel,
     required this.passengersLabel,
+    required this.infantsQuestion,
+    required this.infantsLabel,
+    required this.infantsShort,
+    required this.invalidInfants,
     required this.consult,
     required this.history,
     required this.adminPanel,
@@ -180,6 +184,19 @@ class AppStrings {
   final String registrationLabel;
   final String aircraftTypeLabel;
   final String passengersLabel;
+
+  /// Pregunta de la casilla que habilita el conteo de infantes.
+  final String infantsQuestion;
+
+  /// Etiqueta del campo con la cantidad de infantes.
+  final String infantsLabel;
+
+  /// Encabezado corto para el resumen y la factura.
+  final String infantsShort;
+
+  /// Error cuando los infantes no son un número válido o superan el total
+  /// de pasajeros a bordo.
+  final String invalidInfants;
   final String consult;
   final String history;
   final String adminPanel;
@@ -363,12 +380,16 @@ class AppStrings {
     errorGeneric: 'Ocurrió un error inesperado. Intente nuevamente.',
     selectLanguage: 'Seleccione el idioma',
     welcomeTouch: 'Bienvenido · Welcome',
-    consultTitle: 'Datos de la aeronave',
+    consultTitle: 'Datos del vuelo',
     consultSubtitle:
-        'Ingrese los datos del vuelo para calcular los impuestos de forma automática.',
+        'Ingrese los datos del vuelo para los impuestos de forma automática.',
     registrationLabel: 'Matrícula de la aeronave',
     aircraftTypeLabel: 'Tipo de aeronave',
     passengersLabel: 'Cantidad de pasajeros',
+    infantsQuestion: '¿Lleva infantes de 0-3 años?',
+    infantsLabel: 'Cantidad de infantes',
+    infantsShort: 'Infantes (0-3 años)',
+    invalidInfants: 'No puede superar la cantidad de pasajeros',
     consult: 'Siguiente',
     history: 'Historial',
     adminPanel: 'Panel administrativo',
@@ -521,12 +542,15 @@ class AppStrings {
     errorGeneric: 'An unexpected error occurred. Please try again.',
     selectLanguage: 'Select your language',
     welcomeTouch: 'Bienvenido · Welcome',
-    consultTitle: 'Aircraft details',
-    consultSubtitle:
-        'Enter the flight details to calculate the taxes automatically.',
+    consultTitle: 'Flight details',
+    consultSubtitle: 'Enter the flight details for the taxes automatically.',
     registrationLabel: 'Aircraft registration',
     aircraftTypeLabel: 'Aircraft type',
     passengersLabel: 'Number of passengers',
+    infantsQuestion: 'Any infants aged 0-3?',
+    infantsLabel: 'Number of infants',
+    infantsShort: 'Infants (0-3 years)',
+    invalidInfants: 'Cannot exceed the number of passengers',
     consult: 'Next',
     history: 'History',
     adminPanel: 'Admin panel',
