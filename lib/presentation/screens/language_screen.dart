@@ -22,68 +22,82 @@ class LanguageScreen extends StatelessWidget {
     final AppController controller = context.watch<AppController>();
     final ColorScheme scheme = Theme.of(context).colorScheme;
 
-    // El logo y los espacios se ajustan a la altura del dispositivo para que
-    // ambas opciones de idioma queden visibles sin desplazar la pantalla.
-    final double viewportHeight = MediaQuery.sizeOf(context).height;
-    final bool shortScreen = viewportHeight < 900;
-    final double logoSize = (viewportHeight * 0.20).clamp(120.0, 280.0);
+    final Size viewport = MediaQuery.sizeOf(context);
+    final bool shortScreen = viewport.height < 900;
+    final double logoSize = (viewport.height * 0.20).clamp(120.0, 280.0);
+
+    // Ancho util dentro del scaffold (tope de 860 menos el relleno lateral).
+    // Se calcula aqui, y no con un LayoutBuilder, porque dentro del FittedBox
+    // las restricciones dejan de reflejar el tamano real de la pantalla.
+    final double contentWidth = viewport.width.clamp(0.0, 860.0) - 48;
+    final bool wide = contentWidth > 560;
+
+    final List<Widget> cards = [
+      BigChoiceCard(
+        image: const _LanguageBadge('ES'),
+        label: 'Español',
+        onTap: () => _select(context, 'es'),
+      ),
+      BigChoiceCard(
+        image: const _LanguageBadge('EN'),
+        label: 'English',
+        onTap: () => _select(context, 'en'),
+      ),
+    ];
 
     return KioskScaffold(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SkyTaxLogo(size: logoSize),
-          SizedBox(height: shortScreen ? 24 : 40),
-          Text(
-            controller.strings.welcomeTouch,
-            style: TextStyle(fontSize: 16, color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Seleccione el idioma · Select your language',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: shortScreen ? 24 : 32),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final bool wide = constraints.maxWidth > 560;
-              final List<Widget> cards = [
-                BigChoiceCard(
-                  image: const _LanguageBadge('ES'),
-                  label: 'Español',
-                  onTap: () => _select(context, 'es'),
+      // Pantalla de una sola vista: nunca se desplaza. Si el conjunto no cabe
+      // a lo alto, el FittedBox lo reduce en bloque en lugar de recortarlo o
+      // de sacar una barra de desplazamiento.
+      scrollable: false,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: contentWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SkyTaxLogo(size: logoSize),
+              SizedBox(height: shortScreen ? 24 : 40),
+              Text(
+                controller.strings.welcomeTouch,
+                style: TextStyle(fontSize: 16, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Seleccione el idioma · Select your language',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              ),
+              SizedBox(height: shortScreen ? 24 : 32),
+              if (wide)
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: cards[0]),
+                      const SizedBox(width: 24),
+                      Expanded(child: cards[1]),
+                    ],
+                  ),
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [cards[0], const SizedBox(height: 20), cards[1]],
                 ),
-                BigChoiceCard(
-                  image: const _LanguageBadge('EN'),
-                  label: 'English',
-                  onTap: () => _select(context, 'en'),
+              SizedBox(height: shortScreen ? 28 : 48),
+              Text(
+                controller.config.airportDisplay,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
                 ),
-              ];
-              if (wide) {
-                return Row(
-                  children: [
-                    Expanded(child: cards[0]),
-                    const SizedBox(width: 24),
-                    Expanded(child: cards[1]),
-                  ],
-                );
-              }
-              return Column(
-                children: [cards[0], const SizedBox(height: 20), cards[1]],
-              );
-            },
+              ),
+            ],
           ),
-          SizedBox(height: shortScreen ? 28 : 48),
-          Text(
-            controller.config.airportDisplay,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

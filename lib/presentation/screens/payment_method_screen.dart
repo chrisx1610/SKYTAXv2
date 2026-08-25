@@ -82,7 +82,10 @@ class PaymentMethodScreen extends StatelessWidget {
                   ),
                 );
               }
+              // Estiradas al ancho disponible: sin esto cada tarjeta se
+              // ajusta a su propio texto y quedan de distinto tamano.
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [cards[0], const SizedBox(height: 20), cards[1]],
               );
             },

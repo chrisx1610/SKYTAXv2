@@ -432,12 +432,21 @@ class BigChoiceCard extends StatelessWidget {
             ),
             if (sublabel != null) ...[
               const SizedBox(height: 6),
-              Text(
-                sublabel!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: enabled ? scheme.onSurfaceVariant : muted,
+              // Se reservan siempre dos lineas, ocupelas o no el texto: asi
+              // dos tarjetas contiguas miden exactamente lo mismo aunque un
+              // subtitulo sea mas largo que el otro.
+              SizedBox(
+                height: MediaQuery.textScalerOf(context).scale(16) * 1.35 * 2,
+                child: Text(
+                  sublabel!,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.35,
+                    color: enabled ? scheme.onSurfaceVariant : muted,
+                  ),
                 ),
               ),
             ],

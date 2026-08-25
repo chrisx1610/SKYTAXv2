@@ -718,4 +718,81 @@ void main() {
       });
     }
   });
+
+  group('BigChoiceCard', () {
+    // Los dos subtitulos reales de la pantalla de metodos de pago: uno ocupa
+    // dos lineas y el otro una sola.
+    const String longSublabel = 'Inserte o acerque la tarjeta al lector';
+    const String shortSublabel = 'Numero de referencia';
+
+    Widget harness(double width, {required bool row}) {
+      final List<Widget> cards = [
+        BigChoiceCard(
+          icon: Icons.credit_card_rounded,
+          label: 'Tarjeta',
+          sublabel: longSublabel,
+          onTap: () {},
+        ),
+        BigChoiceCard(
+          icon: Icons.phone_android_rounded,
+          label: 'Pago Movil',
+          sublabel: shortSublabel,
+          onTap: () {},
+        ),
+      ];
+      return MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: width,
+              child: row
+                  ? IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: cards[0]),
+                          const SizedBox(width: 24),
+                          Expanded(child: cards[1]),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [cards[0], const SizedBox(height: 20), cards[1]],
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final double width in [360.0, 480.0]) {
+      testWidgets('apiladas miden igual a $width px', (tester) async {
+        await tester.pumpWidget(harness(width, row: false));
+        expect(tester.takeException(), isNull);
+
+        // Un subtitulo mas largo no debe agrandar su tarjeta: el usuario ve
+        // dos opciones equivalentes y deben verse equivalentes.
+        final Size card = tester.getSize(find.text('Tarjeta'));
+        final Size mobile = tester.getSize(find.text('Pago Movil'));
+        expect(card.height, mobile.height);
+
+        final Size boxA = tester.getSize(find.byType(BigChoiceCard).first);
+        final Size boxB = tester.getSize(find.byType(BigChoiceCard).last);
+        expect(boxA.width, boxB.width);
+        expect(boxA.height, boxB.height);
+      });
+    }
+
+    testWidgets('lado a lado miden igual a 800 px', (tester) async {
+      await tester.pumpWidget(harness(800, row: true));
+      expect(tester.takeException(), isNull);
+
+      final Size boxA = tester.getSize(find.byType(BigChoiceCard).first);
+      final Size boxB = tester.getSize(find.byType(BigChoiceCard).last);
+      expect(boxA.width, boxB.width);
+      expect(boxA.height, boxB.height);
+    });
+  });
 }

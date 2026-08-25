@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
 
 import '../../../core/i18n/app_strings.dart';
@@ -14,7 +18,7 @@ import '../../widgets/kiosk_widgets.dart';
 
 enum _Period { today, week, all }
 
-/// Reportes de recaudación con exportación a TXT.
+/// Reportes de recaudación con exportación a PDF.
 class ReportsSection extends StatefulWidget {
   const ReportsSection({super.key});
 
@@ -73,6 +77,38 @@ class _ReportsSectionState extends State<ReportsSection> {
     }
   }
 
+  /// Fuente de marca incrustada en el PDF.
+  ///
+  /// Se embebe en lugar de usar las tipografías estándar del formato porque
+  /// estas no cubren con fiabilidad los acentos del español ni el símbolo del
+  /// euro que llevan los importes.
+  Future<pw.ThemeData> _pdfTheme() async {
+    final ByteData data = await rootBundle.load('assets/fonts/IBMPlexSans.ttf');
+    final pw.Font font = pw.Font.ttf(data);
+    return pw.ThemeData.withFont(base: font, bold: font);
+  }
+
+  /// Fila etiqueta/valor del bloque de totales.
+  pw.Widget _pdfRow(String label, String value, {bool emphasized = false}) {
+    final double size = emphasized ? 14 : 11;
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 3),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: pw.TextStyle(fontSize: size)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: size,
+              fontWeight: emphasized ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _export() async {
     final AppController controller = context.read<AppController>();
     final AppStrings s = controller.strings;
@@ -80,38 +116,118 @@ class _ReportsSectionState extends State<ReportsSection> {
     if (stats == null) return;
     try {
       final DateTime now = DateTime.now();
-      final StringBuffer b = StringBuffer();
-      void writeln([String text = '']) => b.write('$text\r\n');
-      writeln('=' * 42);
-      writeln('SKYTAX - ${s.sectionReports.toUpperCase()}');
-      writeln('=' * 42);
-      writeln();
-      writeln('${s.airportLabel}: ${controller.config.airportDisplay}');
-      writeln('${s.colDate}: ${Formatters.dateTime(now)}');
-      writeln('${s.colUser}: ${controller.auditUser}');
-      writeln('Período: ${_periodLabel(s)}');
-      writeln();
-      writeln('-' * 42);
-      writeln('${s.statInvoices}: ${stats.count}');
-      writeln('${s.statTotal}: ${Formatters.money(stats.total)}');
-      writeln();
-      writeln('${s.statByMethod}:');
-      if (stats.totalByMethod.isEmpty) {
-        writeln('  ${s.noRecords}');
-      } else {
-        for (final MapEntry<String, double> entry
-            in stats.totalByMethod.entries) {
-          writeln(
-              '  ${s.paymentMethodName(entry.key)}: ${Formatters.money(entry.value)}');
-        }
-      }
-      writeln('-' * 42);
+      final pw.Document doc = pw.Document(
+        title: '${s.sectionReports} — ${controller.config.airportCode}',
+        author: 'SkyTax',
+      );
+      const PdfColor brand = PdfColor.fromInt(0xFF1E40AF);
+      final pw.ThemeData theme = await _pdfTheme();
+
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          theme: theme,
+          margin: const pw.EdgeInsets.all(40),
+          build: (pw.Context ctx) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Text(
+                'SKYTAX',
+                style: pw.TextStyle(
+                  fontSize: 26,
+                  fontWeight: pw.FontWeight.bold,
+                  color: brand,
+                  letterSpacing: 2,
+                ),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                s.sectionReports.toUpperCase(),
+                style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Divider(color: brand, thickness: 1.5),
+              pw.SizedBox(height: 16),
+              _pdfRow('${s.airportLabel}:', controller.config.airportDisplay),
+              _pdfRow('${s.colDate}:', Formatters.dateTime(now)),
+              _pdfRow('${s.colUser}:', controller.auditUser),
+              _pdfRow('Período:', _periodLabel(s)),
+              pw.SizedBox(height: 24),
+              // Totales del período, destacados en un recuadro de marca.
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _pdfRow(s.statInvoices, '${stats.count}', emphasized: true),
+                    _pdfRow(
+                      s.statTotal,
+                      Formatters.money(stats.total),
+                      emphasized: true,
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 24),
+              pw.Text(
+                s.statByMethod,
+                style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 8),
+              if (stats.totalByMethod.isEmpty)
+                pw.Text(s.noRecords, style: const pw.TextStyle(fontSize: 11))
+              else
+                pw.Table(
+                  border: pw.TableBorder.symmetric(
+                    inside: const pw.BorderSide(color: PdfColors.grey300),
+                  ),
+                  children: [
+                    for (final MapEntry<String, double> entry
+                        in stats.totalByMethod.entries)
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 6),
+                            child: pw.Text(
+                              s.paymentMethodName(entry.key),
+                              style: const pw.TextStyle(fontSize: 11),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 6),
+                            child: pw.Text(
+                              Formatters.money(entry.value),
+                              textAlign: pw.TextAlign.right,
+                              style: pw.TextStyle(
+                                fontSize: 11,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              pw.Spacer(),
+              pw.Divider(color: PdfColors.grey400),
+              pw.Text(
+                'SkyTax · ${controller.config.airportDisplay}',
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+              ),
+            ],
+          ),
+        ),
+      );
 
       final Directory dir = Directory(controller.paths.reportes);
       await dir.create(recursive: true);
       final String stamp = DateFormat('yyyyMMdd-HHmmss').format(now);
-      final File file = File(p.join(dir.path, 'REPORTE-$stamp.txt'));
-      await file.writeAsString(b.toString());
+      final File file = File(p.join(dir.path, 'REPORTE-$stamp.pdf'));
+      await file.writeAsBytes(await doc.save());
       await controller.audit('REPORTE', 'Generado ${file.path}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -167,7 +283,7 @@ class _ReportsSectionState extends State<ReportsSection> {
           SectionHeader(
             title: s.sectionReports,
             action: FilledButton.icon(
-              icon: const Icon(Icons.description_rounded),
+              icon: const Icon(Icons.picture_as_pdf_rounded),
               label: Text(s.generateReport),
               onPressed: _loading ? null : _export,
             ),

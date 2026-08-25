@@ -63,7 +63,7 @@ Tres reglas protegen el cobro:
   tramo aplicado y hasta cuándo queda cubierta la estadía.
 - **Historial** de facturas con búsqueda y visor del archivo.
 - **Reportes** por período —hoy, últimos 7 días o histórico completo— en
-  `Documentos/SkyTax/Reportes/REPORTE-<fecha>.txt`, con la cantidad de facturas,
+  `Documentos/SkyTax/Reportes/REPORTE-<fecha>.pdf`, con la cantidad de facturas,
   el total recaudado y el desglose por método de pago.
 
 ### Panel administrativo
