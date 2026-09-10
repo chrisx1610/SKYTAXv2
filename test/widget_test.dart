@@ -9,6 +9,7 @@ import 'package:tesis/data/models/models.dart';
 import 'package:tesis/domain/dosa_schedule.dart';
 import 'package:tesis/domain/invoicing.dart';
 import 'package:tesis/domain/tax_calculator.dart';
+import 'package:tesis/presentation/widgets/bar_chart_card.dart';
 import 'package:tesis/presentation/widgets/kiosk_widgets.dart';
 
 void main() {
@@ -793,6 +794,64 @@ void main() {
       final Size boxB = tester.getSize(find.byType(BigChoiceCard).last);
       expect(boxA.width, boxB.width);
       expect(boxA.height, boxB.height);
+    });
+  });
+
+  group('BarChartCard', () {
+    List<BarDatum> series(int n) => [
+          for (int i = 0; i < n; i++)
+            BarDatum(
+              axisLabel: '${i.toString().padLeft(2, '0')}h',
+              // Un tramo de cada cinco sin actividad, para cubrir el hueco.
+              value: i % 5 == 0 ? 0 : (i * 7 % 13).toDouble(),
+              tooltip: '${i * 7 % 13}',
+            ),
+        ];
+
+    Widget harness(double width, List<BarDatum> bars) => MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: width,
+                child: BarChartCard(
+                  title: 'Facturas emitidas',
+                  bars: bars,
+                  color: AppTheme.brandBright,
+                  emptyLabel: 'No hay registros.',
+                ),
+              ),
+            ),
+          ),
+        );
+
+    for (final double width in [320.0, 480.0, 800.0, 1280.0]) {
+      testWidgets('sin desbordes con 24 tramos a $width px', (tester) async {
+        await tester.pumpWidget(harness(width, series(24)));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('sin datos muestra el aviso en lugar de un eje vacío',
+        (tester) async {
+      final List<BarDatum> vacios = [
+        for (int i = 0; i < 7; i++)
+          BarDatum(axisLabel: 'd$i', value: 0, tooltip: '0'),
+      ];
+      await tester.pumpWidget(harness(600, vacios));
+      expect(tester.takeException(), isNull);
+      // Con todo en cero no hay escala posible: dibujar barras planas daría a
+      // entender que hubo actividad mínima en vez de ninguna.
+      expect(find.text('No hay registros.'), findsOneWidget);
+    });
+
+    testWidgets('la barra mayor lleva su valor escrito', (tester) async {
+      await tester.pumpWidget(harness(800, series(24)));
+      expect(tester.takeException(), isNull);
+      final double maxValue =
+          series(24).fold<double>(0, (a, b) => b.value > a ? b.value : a);
+      // Solo una etiqueta de valor: la del máximo, que fija la escala.
+      expect(find.text('${maxValue.toInt()}'), findsOneWidget);
     });
   });
 }

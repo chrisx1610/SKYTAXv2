@@ -62,9 +62,15 @@ Tres reglas protegen el cobro:
   `FACT-000001`, `FACT-000002`… Incluye el desglose, los infantes exentos, el
   tramo aplicado y hasta cuándo queda cubierta la estadía.
 - **Historial** de facturas con búsqueda y visor del archivo.
-- **Reportes** por período —hoy, últimos 7 días o histórico completo— en
-  `Documentos/SkyTax/Reportes/REPORTE-<fecha>.pdf`, con la cantidad de facturas,
-  el total recaudado y el desglose por método de pago.
+- **Reportes PDF** por período —hoy, últimos 7 días o histórico completo—, con
+  la cantidad de facturas, el total recaudado, el desglose por método de pago y
+  dos gráficos de barras: facturas emitidas y dinero recaudado. El eje se ajusta
+  al período (horas, días o meses) e incluye los tramos sin actividad, para que
+  un día vacío se vea como tal y no desaparezca.
+  Al generarlos, en Android se abre el panel de compartir del sistema para
+  guardarlos o enviarlos, porque la carpeta de la aplicación es privada y el
+  usuario no puede alcanzarla; en Windows quedan en
+  `Documentos/SkyTax/Reportes/REPORTE-<fecha>.pdf`.
 
 ### Panel administrativo
 

@@ -8,12 +8,15 @@ import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/i18n/app_strings.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/bar_chart_card.dart';
 import '../../widgets/kiosk_widgets.dart';
 
 enum _Period { today, week, all }
@@ -43,7 +46,11 @@ class _ReportsSectionState extends State<ReportsSection> {
       case _Period.today:
         return DateTime(now.year, now.month, now.day);
       case _Period.week:
-        return now.subtract(const Duration(days: 7));
+        // Siete dias naturales contando hoy: si se restaran 7*24 horas se
+        // colaria parte de un octavo dia y la suma de las barras dejaria de
+        // cuadrar con el total.
+        return DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 6));
       case _Period.all:
         return null;
     }
@@ -60,12 +67,84 @@ class _ReportsSectionState extends State<ReportsSection> {
     }
   }
 
+  /// Granularidad del eje segun el periodo: horas dentro de un dia, dias
+  /// dentro de una semana y meses en el historico.
+  InvoiceBucketSize get _bucketSize {
+    switch (_period) {
+      case _Period.today:
+        return InvoiceBucketSize.hour;
+      case _Period.week:
+        return InvoiceBucketSize.day;
+      case _Period.all:
+        return InvoiceBucketSize.month;
+    }
+  }
+
+  /// Tramos que debe dibujar el eje, con hueco incluido.
+  ///
+  /// Se generan aqui y no se toman de la consulta porque los tramos sin
+  /// facturacion no vuelven de la base: si solo se pintaran los que tienen
+  /// datos, un dia vacio desapareceria y el grafico daria una idea falsa del
+  /// ritmo de recaudacion.
+  List<(String, String)> _axis(InvoiceStats stats) {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+
+    switch (_period) {
+      case _Period.today:
+        return [
+          for (int h = 0; h <= now.hour; h++)
+            (
+              InvoiceBucketSize.hour.keyOf(today.add(Duration(hours: h))),
+              '${h.toString().padLeft(2, '0')}h',
+            ),
+        ];
+      case _Period.week:
+        return [
+          for (int d = 6; d >= 0; d--)
+            (
+              InvoiceBucketSize.day.keyOf(today.subtract(Duration(days: d))),
+              DateFormat('dd/MM').format(today.subtract(Duration(days: d))),
+            ),
+        ];
+      case _Period.all:
+        if (stats.buckets.isEmpty) return const [];
+        // El historico arranca en el mes de la primera factura emitida.
+        final List<String> keys = stats.buckets.keys.toList()..sort();
+        final DateTime first = DateTime.parse('${keys.first}-01');
+        final List<(String, String)> axis = [];
+        DateTime cursor = DateTime(first.year, first.month);
+        while (!cursor.isAfter(DateTime(now.year, now.month))) {
+          axis.add((
+            InvoiceBucketSize.month.keyOf(cursor),
+            DateFormat('MM/yy').format(cursor),
+          ));
+          cursor = DateTime(cursor.year, cursor.month + 1);
+        }
+        return axis;
+    }
+  }
+
+  List<BarDatum> _bars(InvoiceStats stats, {required bool money}) {
+    return [
+      for (final (String key, String label) in _axis(stats))
+        () {
+          final InvoiceBucket b = stats.buckets[key] ?? InvoiceBucket.empty;
+          return BarDatum(
+            axisLabel: label,
+            value: money ? b.total : b.count.toDouble(),
+            tooltip: money ? Formatters.money(b.total) : '${b.count}',
+          );
+        }(),
+    ];
+  }
+
   Future<void> _load() async {
     final AppController controller = context.read<AppController>();
     setState(() => _loading = true);
     try {
       final InvoiceStats stats =
-          await controller.invoices.statsSince(_since);
+          await controller.invoices.statsSince(_since, bucket: _bucketSize);
       if (!mounted) return;
       setState(() {
         _stats = stats;
@@ -106,6 +185,102 @@ class _ReportsSectionState extends State<ReportsSection> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Version del grafico de barras para el PDF.
+  ///
+  /// Se dibuja con cajas en lugar de usar un motor de graficos: la forma es
+  /// la misma que en pantalla y evita arrastrar otra dependencia.
+  pw.Widget _pdfChart({
+    required String title,
+    required List<BarDatum> bars,
+    required PdfColor color,
+    required String emptyLabel,
+  }) {
+    const double areaHeight = 80;
+    const double labelSpace = 12;
+    final double maxValue =
+        bars.fold<double>(0, (acc, b) => b.value > acc ? b.value : acc);
+    final int step = (bars.length / 8).ceil().clamp(1, 999);
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          title,
+          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 8),
+        if (bars.isEmpty || maxValue <= 0)
+          pw.Container(
+            height: areaHeight,
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              emptyLabel,
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+            ),
+          )
+        else ...[
+          pw.SizedBox(
+            height: areaHeight,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                for (int i = 0; i < bars.length; i++) ...[
+                  if (i > 0) pw.SizedBox(width: 1),
+                  pw.Expanded(
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.end,
+                      children: [
+                        pw.SizedBox(
+                          height: labelSpace,
+                          child: bars[i].value == maxValue
+                              ? pw.FittedBox(
+                                  child: pw.Text(
+                                    bars[i].tooltip,
+                                    style: pw.TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : pw.SizedBox(),
+                        ),
+                        pw.Container(
+                          height: ((areaHeight - labelSpace) *
+                                  (bars[i].value / maxValue))
+                              .clamp(bars[i].value > 0 ? 1.5 : 0.0,
+                                  areaHeight - labelSpace),
+                          color: color,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          pw.Container(height: 0.5, color: PdfColors.grey400),
+          pw.SizedBox(height: 3),
+          pw.Row(
+            children: [
+              for (int i = 0; i < bars.length; i++) ...[
+                if (i > 0) pw.SizedBox(width: 1),
+                pw.Expanded(
+                  child: pw.Text(
+                    i % step == 0 ? bars[i].axisLabel : '',
+                    textAlign: pw.TextAlign.center,
+                    maxLines: 1,
+                    style: const pw.TextStyle(
+                        fontSize: 7, color: PdfColors.grey700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -172,7 +347,21 @@ class _ReportsSectionState extends State<ReportsSection> {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 24),
+              pw.SizedBox(height: 22),
+              _pdfChart(
+                title: s.statInvoices,
+                bars: _bars(stats, money: false),
+                color: const PdfColor.fromInt(0xFF2563EB),
+                emptyLabel: s.noRecords,
+              ),
+              pw.SizedBox(height: 18),
+              _pdfChart(
+                title: s.statTotal,
+                bars: _bars(stats, money: true),
+                color: const PdfColor.fromInt(0xFF9A6B12),
+                emptyLabel: s.noRecords,
+              ),
+              pw.SizedBox(height: 22),
               pw.Text(
                 s.statByMethod,
                 style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
@@ -230,9 +419,29 @@ class _ReportsSectionState extends State<ReportsSection> {
       await file.writeAsBytes(await doc.save());
       await controller.audit('REPORTE', 'Generado ${file.path}');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${s.reportGenerated} ${file.path}')),
-      );
+
+      // En movil la carpeta de la aplicacion es privada: el usuario no puede
+      // llegar al archivo desde el gestor de archivos, asi que se abre el
+      // panel del sistema para que lo guarde o lo envie a donde quiera. En
+      // escritorio el PDF ya queda en Documentos y basta con indicar la ruta.
+      if (Platform.isAndroid || Platform.isIOS) {
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/pdf')],
+            subject:
+                '${s.sectionReports} · ${controller.config.airportDisplay}',
+            text: '${s.sectionReports} · ${_periodLabel(s)}',
+            // Ancla del menu emergente en tablets; se ignora en telefonos.
+            sharePositionOrigin:
+                box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${s.reportGenerated} ${file.path}')),
+        );
+      }
     } catch (e, st) {
       AppLogger.instance.error('No se pudo generar el reporte', e, st);
       if (mounted) {
@@ -318,6 +527,39 @@ class _ReportsSectionState extends State<ReportsSection> {
                 const SizedBox(width: 20),
                 _statCard(s.statTotal, Formatters.money(stats.total)),
               ],
+            ),
+            const SizedBox(height: 20),
+            // Dos graficos y no uno con dos escalas: un conteo y un importe
+            // no comparten eje. Lado a lado si hay sitio; apilados si no.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final Widget issued = BarChartCard(
+                  title: s.statInvoices,
+                  bars: _bars(stats, money: false),
+                  color: AppTheme.brandBright,
+                  emptyLabel: s.noRecords,
+                );
+                final Widget collected = BarChartCard(
+                  title: s.statTotal,
+                  bars: _bars(stats, money: true),
+                  color: AppTheme.gold,
+                  emptyLabel: s.noRecords,
+                );
+                if (constraints.maxWidth < 720) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [issued, const SizedBox(height: 20), collected],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: issued),
+                    const SizedBox(width: 20),
+                    Expanded(child: collected),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
             Card(
