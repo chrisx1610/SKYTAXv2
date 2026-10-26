@@ -124,8 +124,16 @@ class AppStrings {
     required this.stayLabel,
     required this.bracketLabel,
     required this.dosaTariffsTitle,
-    required this.dosaTariffsNote,
     required this.newDosaTariff,
+    required this.newTariffModeTitle,
+    required this.tariffModeAuto,
+    required this.tariffModeManual,
+    required this.importedCountTemplate,
+    required this.skippedCountTemplate,
+    required this.unreadableCountTemplate,
+    required this.importNothingNew,
+    required this.importFailed,
+
     required this.editDosaTariff,
     required this.addRow,
     required this.modelExists,
@@ -309,8 +317,25 @@ class AppStrings {
   final String stayLabel;
   final String bracketLabel;
   final String dosaTariffsTitle;
-  final String dosaTariffsNote;
   final String newDosaTariff;
+
+  // Alta de tarifas DOSA: elegir entre carga manual o desde un Excel.
+  final String newTariffModeTitle;
+  final String tariffModeAuto;
+  final String tariffModeManual;
+
+  /// Resumen de la importación. Se arman por separado y se unen con un punto
+  /// medio, de modo que solo aparezcan los tramos con algo que contar.
+  final String importedCountTemplate;
+  final String skippedCountTemplate;
+  final String unreadableCountTemplate;
+  final String importNothingNew;
+  final String importFailed;
+
+  String importedCount(int n) => importedCountTemplate.replaceFirst('%d', '$n');
+  String skippedCount(int n) => skippedCountTemplate.replaceFirst('%d', '$n');
+  String unreadableCount(int n) =>
+      unreadableCountTemplate.replaceFirst('%d', '$n');
   final String editDosaTariff;
   final String addRow;
   final String modelExists;
@@ -490,9 +515,15 @@ class AppStrings {
     stayLabel: 'Permanencia',
     bracketLabel: 'Tramo aplicado',
     dosaTariffsTitle: 'Tarifas DOSA por modelo',
-    dosaTariffsNote:
-        'Defina una fila por tipo de aeronave y el importe en EUR de cada tramo de permanencia.',
     newDosaTariff: 'Nueva tarifa',
+    newTariffModeTitle: '¿Cómo desea colocar la nueva tarifa?',
+    tariffModeAuto: 'Automático',
+    tariffModeManual: 'Manual',
+    importedCountTemplate: '%d tarifas importadas',
+    skippedCountTemplate: '%d ya estaban cargadas',
+    unreadableCountTemplate: '%d filas ilegibles',
+    importNothingNew: 'El archivo no traía tarifas nuevas.',
+    importFailed: 'No se pudo leer el archivo.',
     editDosaTariff: 'Editar tarifa',
     addRow: 'Agregar fila',
     modelExists: 'Ya existe una tarifa para ese modelo',
@@ -651,9 +682,15 @@ class AppStrings {
     stayLabel: 'Length of stay',
     bracketLabel: 'Applied bracket',
     dosaTariffsTitle: 'DOSA tariffs by model',
-    dosaTariffsNote:
-        'Define one row per aircraft type and the EUR amount for each length-of-stay bracket.',
     newDosaTariff: 'New tariff',
+    newTariffModeTitle: 'How do you want to add the new tariff?',
+    tariffModeAuto: 'Automatic',
+    tariffModeManual: 'Manual',
+    importedCountTemplate: '%d tariffs imported',
+    skippedCountTemplate: '%d were already on file',
+    unreadableCountTemplate: '%d unreadable rows',
+    importNothingNew: 'The file had no new tariffs.',
+    importFailed: 'The file could not be read.',
     editDosaTariff: 'Edit tariff',
     addRow: 'Add row',
     modelExists: 'A tariff for that model already exists',

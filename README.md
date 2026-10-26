@@ -81,9 +81,22 @@ Usuario inicial **`Vincent`** / **`123456789`**.
 | Aeronaves | Flota del aeropuerto (matrícula, modelo, capacidad) |
 | Usuarios | Altas y credenciales del personal |
 | Pendientes | Aeronaves con pago diferido, su permanencia y lo que adeudan |
-| Configuración | Tasa por pasajero, tabla de tarifas DOSA y aeropuerto del terminal |
+| Configuración | Tasa por pasajero, tabla de tarifas DOSA (carga manual o importada desde Excel) y aeropuerto del terminal |
 | Historial | Facturas emitidas |
 | Reportes | Generación de reportes por período |
+
+### Carga de tarifas DOSA
+
+El botón **+** de la tabla de tarifas pregunta por la vía:
+
+- **Automático** — se elige un archivo `.xlsx` con la tabla oficial y la
+  aplicación da de alta cada aeronave con sus seis tramos. Busca la hoja que
+  contiene la tabla, toma el código de aeronave de la columna `CÓDIGO` y lee
+  los seis importes como los últimos seis números de cada fila, de modo que el
+  número de tarifa no se confunda con un importe. Las aeronaves que **ya
+  tienen tarifa cargada se omiten**: una importación nunca pisa importes que
+  un administrador pudo ajustar a mano.
+- **Manual** — alta de una sola tarifa en un formulario.
 
 ### Trazabilidad
 

@@ -7,6 +7,7 @@ import 'package:tesis/core/utils/formatters.dart';
 import 'package:tesis/core/utils/input_formatters.dart';
 import 'package:tesis/data/models/models.dart';
 import 'package:tesis/domain/dosa_schedule.dart';
+import 'package:tesis/domain/dosa_tariff_import.dart';
 import 'package:tesis/domain/invoicing.dart';
 import 'package:tesis/domain/tax_calculator.dart';
 import 'package:tesis/presentation/widgets/bar_chart_card.dart';
@@ -173,8 +174,8 @@ void main() {
     });
 
     test('montos con separador de miles', () {
-      expect(Formatters.money(1425), '€1,425');
-      expect(Formatters.money(1545.5), '€1,545.5');
+      expect(Formatters.money(1425), '1,425€');
+      expect(Formatters.money(1545.5), '1,545.5€');
     });
   });
 
@@ -204,10 +205,10 @@ void main() {
       expect(text, contains('14:35'));
       expect(text, contains('SVMI - Maiquetía'));
       expect(text, contains('YV1234'));
-      expect(text, contains('95 x €15'));
-      expect(text, contains('€1,425'));
-      expect(text, contains('€120'));
-      expect(text, contains('€1,545'));
+      expect(text, contains('95 x 15€'));
+      expect(text, contains('1,425€'));
+      expect(text, contains('120€'));
+      expect(text, contains('1,545€'));
       expect(text, contains('TOTAL PAGADO'));
       expect(text, contains('Tarjeta'));
       expect(text, contains('Gracias por utilizar SkyTax'));
@@ -852,6 +853,144 @@ void main() {
           series(24).fold<double>(0, (a, b) => b.value > a ? b.value : a);
       // Solo una etiqueta de valor: la del máximo, que fija la escala.
       expect(find.text('${maxValue.toInt()}'), findsOneWidget);
+    });
+  });
+
+  group('parseDosaTariffSheet', () {
+    // Encabezado y filas calcados del tabulador oficial: codigo, modelo,
+    // numero de tarifa y los seis tramos.
+    final List<List<String?>> hoja = [
+      ['CÓDIGO', 'MODELO', 'TARIFA', 'NO BASADAS Hasta 2 horas (Ref.)',
+       '1er día Ref.', '2do. al 7mo. día', '8vo. al 14to. día',
+       '15to. al 21ro. día', '22do. al 30mo. día'],
+      ['A109', 'HELI (AUGUSTA109)', '1', '43.10', '86.20', '172.45', '362.10',
+       '543.10', '612.10'],
+      ['AC50', 'AEROCOMMANDER', '2', '68.97', '137.94', '275.87', '603.45',
+       '1,439.69', '1,594.85'],
+      ['AN2', 'ANTONOV-2', '3', '94.83', '189.66', '379.32', '844.90',
+       '2,008.65', '5,185.35'],
+    ];
+
+    test('lee codigo y los seis tramos de cada fila', () {
+      final DosaTariffImport r =
+          parseDosaTariffSheet(hoja, existingModels: const {});
+      expect(r.toInsert.length, 3);
+      expect(r.unreadableRows, 0);
+
+      final DosaTariff a109 = r.toInsert.first;
+      expect(a109.model, 'A109');
+      expect(a109.brackets, [43.10, 86.20, 172.45, 362.10, 543.10, 612.10]);
+    });
+
+    test('el numero de tarifa no se confunde con un importe', () {
+      final DosaTariffImport r =
+          parseDosaTariffSheet(hoja, existingModels: const {});
+      // La columna TARIFA vale 2 en esta fila; el primer tramo es 68.97.
+      final DosaTariff ac50 =
+          r.toInsert.firstWhere((t) => t.model == 'AC50');
+      expect(ac50.upTo2Hours, 68.97);
+      expect(ac50.days22To30, 1594.85);
+    });
+
+    test('omite los modelos que ya estan cargados', () {
+      final DosaTariffImport r =
+          parseDosaTariffSheet(hoja, existingModels: const {'ac50'});
+      expect(r.toInsert.map((t) => t.model), ['A109', 'AN2']);
+      expect(r.skippedExisting, ['AC50']);
+    });
+
+    test('no duplica un codigo repetido dentro del mismo archivo', () {
+      final DosaTariffImport r = parseDosaTariffSheet(
+        [...hoja, hoja[1]],
+        existingModels: const {},
+      );
+      expect(r.toInsert.where((t) => t.model == 'A109').length, 1);
+    });
+
+    test('cuenta las filas que no se pudieron leer', () {
+      final DosaTariffImport r = parseDosaTariffSheet(
+        [...hoja, ['XXXX', 'SIN IMPORTES', '', '', '', '', '', '', '']],
+        existingModels: const {},
+      );
+      expect(r.toInsert.length, 3);
+      expect(r.unreadableRows, 1);
+    });
+
+    test('acepta los dos usos de coma y punto', () {
+      expect(parseSheetAmount('1,439.69'), 1439.69);
+      expect(parseSheetAmount('1.439,69'), 1439.69);
+      expect(parseSheetAmount('43.10'), 43.10);
+      expect(parseSheetAmount('612'), 612);
+      expect(parseSheetAmount('€68,97'), 68.97);
+      expect(parseSheetAmount('68,97€'), 68.97);
+      expect(parseSheetAmount('texto'), isNull);
+      expect(parseSheetAmount(''), isNull);
+      expect(parseSheetAmount(null), isNull);
+    });
+  });
+
+  group('ChoiceTile', () {
+    const String label = 'Automático';
+
+    Widget harness(double width) => MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: width,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ChoiceTile(label: label, onTap: () {}),
+                    const SizedBox(height: 12),
+                    ChoiceTile(label: 'Manual', onTap: () {}),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+    // 280 px cubre el caso del dialogo en un telefono angosto, donde la
+    // version anterior partia «Automático» en tres pedazos.
+    for (final double width in [280.0, 340.0, 420.0, 800.0]) {
+      testWidgets('sin desbordes a $width px', (tester) async {
+        await tester.pumpWidget(harness(width));
+        expect(tester.takeException(), isNull);
+        expect(find.text(label), findsOneWidget);
+        expect(find.text('Manual'), findsOneWidget);
+      });
+    }
+
+    testWidgets('el título no se parte en pantalla angosta', (tester) async {
+      await tester.pumpWidget(harness(280));
+      expect(tester.takeException(), isNull);
+      // Una sola linea: si la caja fuese mas angosta que la palabra, el texto
+      // se rompería a mitad («Auto / mátic / o»).
+      final TextPainter painter = TextPainter(
+        text: const TextSpan(
+          text: label,
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      expect(
+        tester.getSize(find.text(label)).width,
+        greaterThanOrEqualTo(painter.width),
+      );
+    });
+
+    testWidgets('responde al toque', (tester) async {
+      int taps = 0;
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: ChoiceTile(label: 'Manual', onTap: () => taps++),
+        ),
+      ));
+      await tester.tap(find.byType(ChoiceTile));
+      expect(taps, 1);
     });
   });
 }

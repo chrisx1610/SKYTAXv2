@@ -6,8 +6,8 @@ class Formatters {
 
   static final NumberFormat _money = NumberFormat('#,##0.##', 'en_US');
 
-  /// Formatea un monto como `€1,425` (sin decimales cuando son cero).
-  static String money(double value) => '€${_money.format(value)}';
+  /// Formatea un monto como `1,425€` (sin decimales cuando son cero).
+  static String money(double value) => '${_money.format(value)}€';
 
   static String date(DateTime dt) => DateFormat('dd/MM/yyyy').format(dt);
 

@@ -457,6 +457,46 @@ class BigChoiceCard extends StatelessWidget {
   }
 }
 
+/// Opción de una lista de elección, sin ícono.
+///
+/// Pensada para diálogos: ocupa todo el ancho disponible y centra su texto,
+/// de modo que se lee igual en un teléfono angosto que en una tablet.
+/// Apilarlas evita el problema de dos tarjetas lado a lado, que en pantallas
+/// estrechas parten las palabras.
+class ChoiceTile extends StatelessWidget {
+  const ChoiceTile({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Fila etiqueta/valor usada en resúmenes y confirmaciones.
 class SummaryRow extends StatelessWidget {
   const SummaryRow({

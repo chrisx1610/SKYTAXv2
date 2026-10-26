@@ -1,3 +1,5 @@
+import 'package:excel/excel.dart' as xls;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import '../../../core/i18n/app_strings.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/input_formatters.dart';
 import '../../../data/models/models.dart';
+import '../../../domain/dosa_tariff_import.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/kiosk_widgets.dart';
 
@@ -63,6 +66,108 @@ class _SettingsSectionState extends State<SettingsSection> {
       AppLogger.instance
           .error('No se pudieron cargar las tarifas DOSA', e, st);
       if (mounted) setState(() => _loadingTariffs = false);
+    }
+  }
+
+  /// Alta de una tarifa: primero se pregunta por la via.
+  ///
+  /// La carga automatica da de alta de golpe toda la tabla oficial; la manual
+  /// sirve para una aeronave suelta o para corregir una que falte.
+  Future<void> _addTariff() async {
+    final _TariffMode? mode = await showDialog<_TariffMode>(
+      context: context,
+      builder: (_) => const _TariffModeDialog(),
+    );
+    if (mode == null || !mounted) return;
+    if (mode == _TariffMode.manual) {
+      await _editTariff();
+    } else {
+      await _importTariffs();
+    }
+  }
+
+  /// Carga masiva desde la hoja de tarifas oficial.
+  ///
+  /// Los modelos que ya tienen tarifa se dejan intactos: el administrador
+  /// pudo haberlos ajustado a mano y una importacion no debe pisarlos.
+  Future<void> _importTariffs() async {
+    final AppController controller = context.read<AppController>();
+    final AppStrings s = controller.strings;
+    try {
+      final List<PlatformFile> picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['xlsx'],
+      );
+      // Lista vacia: el administrador cerro el selector sin elegir nada.
+      if (picked.isEmpty || !mounted) return;
+      final PlatformFile file = picked.first;
+      final Uint8List bytes = await file.readAsBytes();
+      if (!mounted) return;
+
+      setState(() => _loadingTariffs = true);
+      final xls.Excel book = xls.Excel.decodeBytes(bytes);
+      if (book.tables.isEmpty) {
+        if (mounted) {
+          setState(() => _loadingTariffs = false);
+          _snack(s.importFailed);
+        }
+        return;
+      }
+      final List<DosaTariff> existing = await controller.dosaTariffs.getAll();
+      final Set<String> existingModels = {
+        for (final DosaTariff t in existing) t.model,
+      };
+
+      // Se recorren todas las hojas y se elige la que mas aeronaves aporta.
+      // Tomar la primera a ciegas falla en cuanto el libro trae una portada o
+      // una hoja auxiliar por delante de la tabla.
+      DosaTariffImport? best;
+      for (final xls.Sheet sheet in book.tables.values) {
+        final List<List<String?>> rows = [
+          for (final List<xls.Data?> row in sheet.rows)
+            [for (final xls.Data? cell in row) cell?.value?.toString()],
+        ];
+        final DosaTariffImport candidate =
+            parseDosaTariffSheet(rows, existingModels: existingModels);
+        final int recognised =
+            candidate.toInsert.length + candidate.skippedExisting.length;
+        final int bestSoFar =
+            best == null ? -1 : best.toInsert.length + best.skippedExisting.length;
+        if (recognised > bestSoFar) best = candidate;
+      }
+      final DosaTariffImport result = best ??
+          const DosaTariffImport(
+              toInsert: [], skippedExisting: [], unreadableRows: 0);
+
+      for (final DosaTariff tariff in result.toInsert) {
+        await controller.dosaTariffs.insert(tariff);
+      }
+      if (result.toInsert.isNotEmpty) {
+        await controller.audit(
+          'DOSA_TARIFAS_IMPORTADAS',
+          '${result.toInsert.length} modelos desde ${file.name}',
+        );
+      }
+      await _loadTariffs();
+      if (!mounted) return;
+
+      // Resumen con solo los tramos que tienen algo que contar.
+      final List<String> parts = [
+        s.importedCount(result.toInsert.length),
+        if (result.skippedExisting.isNotEmpty)
+          s.skippedCount(result.skippedExisting.length),
+        if (result.unreadableRows > 0)
+          s.unreadableCount(result.unreadableRows),
+      ];
+      _snack(result.isEmpty && result.skippedExisting.isEmpty
+          ? s.importNothingNew
+          : parts.join(' · '));
+    } catch (e, st) {
+      AppLogger.instance.error('No se pudo importar la tabla de tarifas', e, st);
+      if (mounted) {
+        setState(() => _loadingTariffs = false);
+        _snack(s.importFailed);
+      }
     }
   }
 
@@ -240,15 +345,10 @@ class _SettingsSectionState extends State<SettingsSection> {
                 FloatingActionButton(
                   heroTag: null,
                   tooltip: s.newDosaTariff,
-                  onPressed: () => _editTariff(),
+                  onPressed: _addTariff,
                   child: const Icon(Icons.add_rounded, size: 30),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              s.dosaTariffsNote,
-              style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             if (_loadingTariffs)
@@ -488,7 +588,7 @@ class _DosaTariffDialogState extends State<_DosaTariffDialog> {
                               ],
                               decoration: InputDecoration(
                                 labelText: labels[i],
-                                prefixText: '€ ',
+                                suffixText: '€',
                               ),
                               validator: (value) {
                                 final String raw =
@@ -519,6 +619,53 @@ class _DosaTariffDialogState extends State<_DosaTariffDialog> {
         FilledButton(
           onPressed: _saving ? null : _save,
           child: Text(s.save),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Vias de alta de una tarifa DOSA.
+enum _TariffMode { auto, manual }
+
+/// Pregunta como se quiere dar de alta la tarifa.
+///
+/// Las dos opciones van apiladas y a todo el ancho del dialogo: lado a lado
+/// se estrechan tanto en un telefono que las palabras se parten por la mitad.
+class _TariffModeDialog extends StatelessWidget {
+  const _TariffModeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppStrings s = context.watch<AppController>().strings;
+
+    return AlertDialog(
+      title: Text(s.newTariffModeTitle),
+      // Sin ancho fijo: el dialogo se ajusta a la pantalla y solo se le pone
+      // un tope para que no quede desmedido en escritorio.
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ChoiceTile(
+              label: s.tariffModeAuto,
+              onTap: () => Navigator.of(context).pop(_TariffMode.auto),
+            ),
+            const SizedBox(height: 12),
+            ChoiceTile(
+              label: s.tariffModeManual,
+              onTap: () => Navigator.of(context).pop(_TariffMode.manual),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.cancel),
         ),
       ],
     );
