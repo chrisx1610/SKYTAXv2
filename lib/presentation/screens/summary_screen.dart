@@ -6,6 +6,7 @@ import '../../core/utils/formatters.dart';
 import '../../domain/tax_calculator.dart';
 import '../state/app_controller.dart';
 import '../widgets/kiosk_widgets.dart';
+import 'offline_guard.dart';
 import 'payment_method_screen.dart';
 
 /// Resumen del cálculo antes de pagar.
@@ -19,6 +20,7 @@ class SummaryScreen extends StatelessWidget {
     final AppController controller = context.watch<AppController>();
     final AppStrings s = controller.strings;
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool offline = !controller.online;
 
     return KioskScaffold(
       title: s.summaryTitle,
@@ -47,6 +49,12 @@ class SummaryScreen extends StatelessWidget {
               background: scheme.errorContainer,
               foreground: scheme.onErrorContainer,
             ),
+          ],
+          // Sin red el cobro es imposible: se avisa antes de que el usuario
+          // llegue al botón y descubra que no puede pagar.
+          if (offline) ...[
+            const SizedBox(height: 12),
+            const OfflineNotice(),
           ],
           const SizedBox(height: 20),
           Card(
@@ -110,11 +118,15 @@ class SummaryScreen extends StatelessWidget {
                 Navigator.of(context).popUntil((route) => route.isFirst),
             primaryLabel: s.continueLabel,
             primaryIcon: Icons.arrow_forward_rounded,
-            onPrimary: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PaymentMethodScreen(quote: quote),
-              ),
-            ),
+            // Sin red no se entra al cobro: la aeronave queda registrada
+            // como pendiente y el usuario vuelve cuando se restablezca.
+            onPrimary: () => offline
+                ? deferBecauseOffline(context, quote)
+                : Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PaymentMethodScreen(quote: quote),
+                    ),
+                  ),
           ),
         ],
       ),

@@ -10,17 +10,39 @@ import '../state/app_controller.dart';
 import '../widgets/kiosk_widgets.dart';
 import 'card_payment_screen.dart';
 import 'mobile_payment_screen.dart';
+import 'offline_guard.dart';
 
 /// Selección del método de pago: Tarjeta o Pago Móvil.
-class PaymentMethodScreen extends StatelessWidget {
+class PaymentMethodScreen extends StatefulWidget {
   const PaymentMethodScreen({super.key, required this.quote});
 
   final TaxQuote quote;
 
   @override
+  State<PaymentMethodScreen> createState() => _PaymentMethodScreenState();
+}
+
+class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
+  /// Evita registrar la aeronave como pendiente dos veces si llegan varios
+  /// avisos de red seguidos.
+  bool _handledOffline = false;
+
+  @override
   Widget build(BuildContext context) {
-    final AppStrings s = context.watch<AppController>().strings;
+    final AppController controller = context.watch<AppController>();
+    final AppStrings s = controller.strings;
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TaxQuote quote = widget.quote;
+    final bool offline = !controller.online;
+
+    // La red pudo caerse entre el resumen y esta pantalla. No se puede
+    // navegar durante el build, de ahí que se espere al final del cuadro.
+    if (offline && !_handledOffline) {
+      _handledOffline = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) deferBecauseOffline(context, quote);
+      });
+    }
 
     return KioskScaffold(
       title: s.paymentTitle,
@@ -44,6 +66,10 @@ class PaymentMethodScreen extends StatelessWidget {
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
+          if (offline) ...[
+            const SizedBox(height: 24),
+            const OfflineNotice(),
+          ],
           const SizedBox(height: 32),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -53,6 +79,7 @@ class PaymentMethodScreen extends StatelessWidget {
                   icon: Icons.credit_card_rounded,
                   label: s.methodCard,
                   sublabel: s.insertCard,
+                  enabled: !offline,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => CardPaymentScreen(quote: quote),
@@ -63,6 +90,7 @@ class PaymentMethodScreen extends StatelessWidget {
                   icon: Icons.phone_android_rounded,
                   label: s.methodMobile,
                   sublabel: s.referenceLabel,
+                  enabled: !offline,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => MobilePaymentScreen(quote: quote),

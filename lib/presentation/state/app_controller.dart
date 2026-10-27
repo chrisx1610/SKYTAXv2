@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_paths.dart';
@@ -18,6 +21,18 @@ import '../../domain/dosa_schedule.dart';
 import '../../domain/invoicing.dart';
 import '../../domain/payment_simulator.dart';
 import '../../domain/tax_calculator.dart';
+
+/// `true` si el aparato tiene alguna interfaz de red disponible.
+///
+/// El detector devuelve una lista: sin red trae `none` como único elemento,
+/// y con varias interfaces activas las enumera todas. Una lista vacía se
+/// trata como falta de red por prudencia, aunque no deberia ocurrir.
+///
+/// Es una lectura del estado de la radio, no una comprobación de que haya
+/// salida real a internet: una red sin ruta al exterior se informa como
+/// disponible.
+bool hasNetwork(List<ConnectivityResult> result) =>
+    result.isNotEmpty && !result.every((r) => r == ConnectivityResult.none);
 
 /// Estado global de la aplicación.
 ///
@@ -65,12 +80,57 @@ class AppController extends ChangeNotifier {
   /// Usuario registrado en la auditoría para la operación actual.
   String get auditUser => currentAdmin?.username ?? 'kiosco';
 
+  /// `true` mientras el terminal tenga alguna red disponible.
+  ///
+  /// El cálculo de impuestos y la base de datos son locales y siguen
+  /// funcionando sin red, pero el cobro no: el datáfono y el pago móvil
+  /// necesitan salir a internet. Mientras esto sea `false` no se permite
+  /// pagar y la aeronave se registra como pendiente.
+  bool online = true;
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivity;
+
   Future<void> bootstrap() async {
     config = await _configStore.load();
     await _dbase.open(config.airportCode);
     await _reloadSettings();
+    await _watchConnectivity();
     AppLogger.instance
         .info('SkyTax iniciado en ${config.airportDisplay}');
+  }
+
+  /// Vigila la red y avisa a las pantallas en cuanto cambia.
+  ///
+  /// Si la consulta inicial falla se asume que hay conexión: dejar el kiosco
+  /// bloqueado por un fallo del propio detector seria peor que permitir el
+  /// cobro, que de todos modos fallaria por su cuenta si no hay red.
+  Future<void> _watchConnectivity() async {
+    final Connectivity connectivity = Connectivity();
+    try {
+      _applyConnectivity(await connectivity.checkConnectivity());
+    } catch (e, st) {
+      AppLogger.instance.error('No se pudo leer el estado de la red', e, st);
+      online = true;
+    }
+    _connectivity = connectivity.onConnectivityChanged.listen(
+      _applyConnectivity,
+      onError: (Object e, StackTrace st) =>
+          AppLogger.instance.error('Fallo al vigilar la red', e, st),
+    );
+  }
+
+  void _applyConnectivity(List<ConnectivityResult> result) {
+    final bool connected = hasNetwork(result);
+    if (connected == online) return;
+    online = connected;
+    AppLogger.instance.info(online ? 'Red disponible' : 'Sin conexion de red');
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _connectivity?.cancel();
+    super.dispose();
   }
 
   Future<void> _reloadSettings() async {

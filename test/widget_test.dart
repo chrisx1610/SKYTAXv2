@@ -10,6 +10,8 @@ import 'package:tesis/domain/dosa_schedule.dart';
 import 'package:tesis/domain/dosa_tariff_import.dart';
 import 'package:tesis/domain/invoicing.dart';
 import 'package:tesis/domain/tax_calculator.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:tesis/presentation/state/app_controller.dart';
 import 'package:tesis/presentation/widgets/bar_chart_card.dart';
 import 'package:tesis/presentation/widgets/kiosk_widgets.dart';
 
@@ -991,6 +993,29 @@ void main() {
       ));
       await tester.tap(find.byType(ChoiceTile));
       expect(taps, 1);
+    });
+  });
+
+  group('hasNetwork', () {
+    test('sin red cuando solo llega none', () {
+      expect(hasNetwork(const [ConnectivityResult.none]), isFalse);
+    });
+
+    test('con red por wifi o datos moviles', () {
+      expect(hasNetwork(const [ConnectivityResult.wifi]), isTrue);
+      expect(hasNetwork(const [ConnectivityResult.mobile]), isTrue);
+      expect(hasNetwork(const [ConnectivityResult.ethernet]), isTrue);
+    });
+
+    test('basta una interfaz util entre varias', () {
+      expect(
+        hasNetwork(const [ConnectivityResult.none, ConnectivityResult.wifi]),
+        isTrue,
+      );
+    });
+
+    test('una lista vacía se toma como falta de red', () {
+      expect(hasNetwork(const []), isFalse);
     });
   });
 }

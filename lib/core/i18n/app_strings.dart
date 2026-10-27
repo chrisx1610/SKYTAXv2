@@ -120,6 +120,9 @@ class AppStrings {
     required this.payLater,
     required this.payLaterUnavailable,
     required this.paymentDeferred,
+    required this.offlineTitle,
+    required this.offlineNote,
+    required this.offlineDeferred,
     required this.pendingSince,
     required this.stayLabel,
     required this.bracketLabel,
@@ -313,6 +316,11 @@ class AppStrings {
   /// Motivo por el que no se puede volver a diferir: ya hay un pago pendiente.
   final String payLaterUnavailable;
   final String paymentDeferred;
+
+  // Sin conexión: el cobro no es posible y la aeronave queda pendiente.
+  final String offlineTitle;
+  final String offlineNote;
+  final String offlineDeferred;
   final String pendingSince;
   final String stayLabel;
   final String bracketLabel;
@@ -511,6 +519,11 @@ class AppStrings {
     payLater: 'Pagar más tarde',
     payLaterUnavailable: 'Ya tiene un pago pendiente',
     paymentDeferred: 'Aeronave registrada como pendiente de pago',
+    offlineTitle: 'Sin conexión a internet',
+    offlineNote:
+        'El cobro necesita conexión. La aeronave quedará registrada como pendiente hasta que se restablezca.',
+    offlineDeferred:
+        'Sin conexión: la aeronave quedó registrada como pendiente de pago',
     pendingSince: 'Pendiente desde',
     stayLabel: 'Permanencia',
     bracketLabel: 'Tramo aplicado',
@@ -678,6 +691,11 @@ class AppStrings {
     payLater: 'Pay later',
     payLaterUnavailable: 'Payment already pending',
     paymentDeferred: 'Aircraft recorded as pending payment',
+    offlineTitle: 'No internet connection',
+    offlineNote:
+        'Payment needs a connection. The aircraft will be recorded as pending until it is restored.',
+    offlineDeferred:
+        'No connection: the aircraft was recorded as pending payment',
     pendingSince: 'Pending since',
     stayLabel: 'Length of stay',
     bracketLabel: 'Applied bracket',
