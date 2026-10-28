@@ -521,7 +521,7 @@ class AppStrings {
     paymentDeferred: 'Aeronave registrada como pendiente de pago',
     offlineTitle: 'Sin conexión a internet',
     offlineNote:
-        'El cobro necesita conexión. La aeronave quedará registrada como pendiente hasta que se restablezca.',
+        'La aeronave quedará registrada como pendiente hasta que se restablezca la conexión',
     offlineDeferred:
         'Sin conexión: la aeronave quedó registrada como pendiente de pago',
     pendingSince: 'Pendiente desde',
@@ -693,7 +693,7 @@ class AppStrings {
     paymentDeferred: 'Aircraft recorded as pending payment',
     offlineTitle: 'No internet connection',
     offlineNote:
-        'Payment needs a connection. The aircraft will be recorded as pending until it is restored.',
+        'The aircraft will be recorded as pending until the connection is restored',
     offlineDeferred:
         'No connection: the aircraft was recorded as pending payment',
     pendingSince: 'Pending since',
