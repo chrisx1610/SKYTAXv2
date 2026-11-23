@@ -16,6 +16,8 @@ class AppLogger {
   File? _file;
 
   Future<void> init(String logsDirectory) async {
+    // En el navegador no hay archivo de log: solo la consola.
+    if (kIsWeb) return;
     try {
       final Directory dir = Directory(logsDirectory);
       await dir.create(recursive: true);

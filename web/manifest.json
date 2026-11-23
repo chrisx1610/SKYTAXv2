@@ -1,11 +1,11 @@
 {
-    "name": "tesis",
-    "short_name": "tesis",
+    "name": "SkyTax",
+    "short_name": "SkyTax",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "SkyTax - Cálculo y pago de impuestos aeroportuarios.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

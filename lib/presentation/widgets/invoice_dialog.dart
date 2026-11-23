@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/app_strings.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/file_download.dart';
 import '../../data/models/models.dart';
 import '../../domain/invoicing.dart';
 import 'kiosk_widgets.dart';
@@ -11,21 +14,26 @@ import 'kiosk_widgets.dart';
 /// Muestra el contenido del archivo TXT de una factura.
 ///
 /// Si el archivo ya no existe en disco, reconstruye el documento a partir
-/// del registro de la base de datos.
+/// del registro de la base de datos. En el navegador no hay archivo: el
+/// documento siempre se reconstruye y se ofrece como descarga.
 Future<void> showInvoiceDialog(
   BuildContext context,
   Invoice invoice,
   AppStrings s,
 ) async {
   String content;
-  bool fromFile = true;
-  try {
-    content = await File(invoice.filePath).readAsString();
-  } catch (e) {
-    AppLogger.instance
-        .warning('Factura ${invoice.number}: archivo no disponible ($e)');
+  bool fromFile = !kIsWeb;
+  if (kIsWeb) {
     content = buildInvoiceText(invoice, s);
-    fromFile = false;
+  } else {
+    try {
+      content = await File(invoice.filePath).readAsString();
+    } catch (e) {
+      AppLogger.instance
+          .warning('Factura ${invoice.number}: archivo no disponible ($e)');
+      content = buildInvoiceText(invoice, s);
+      fromFile = false;
+    }
   }
   if (!context.mounted) return;
 
@@ -39,7 +47,7 @@ Future<void> showInvoiceDialog(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!fromFile)
+            if (!fromFile && !kIsWeb)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
@@ -54,7 +62,17 @@ Future<void> showInvoiceDialog(
         ),
       ),
       actions: [
-        if (fromFile && Platform.isWindows)
+        if (kIsWeb)
+          TextButton.icon(
+            icon: const Icon(Icons.download_rounded),
+            label: Text(s.download),
+            onPressed: () => downloadFile(
+              utf8.encode(content),
+              fileName: '${invoice.number}.txt',
+              mimeType: 'text/plain;charset=utf-8',
+            ),
+          )
+        else if (fromFile && Platform.isWindows)
           TextButton.icon(
             icon: const Icon(Icons.folder_open_rounded),
             label: Text(s.openFolder),

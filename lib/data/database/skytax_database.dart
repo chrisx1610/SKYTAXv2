@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -40,9 +41,15 @@ class SkyTaxDatabase {
     await _db?.close();
     _db = null;
 
-    await Directory(dataDirectory).create(recursive: true);
-    final String path =
-        p.join(dataDirectory, 'skytax_${code.toLowerCase()}.db');
+    // En web la base es un nombre dentro de IndexedDB, no un archivo.
+    final String fileName = 'skytax_${code.toLowerCase()}.db';
+    final String path;
+    if (kIsWeb) {
+      path = fileName;
+    } else {
+      await Directory(dataDirectory).create(recursive: true);
+      path = p.join(dataDirectory, fileName);
+    }
 
     _db = await openDatabase(
       path,

@@ -81,6 +81,8 @@ class AppStrings {
     required this.searchHint,
     required this.noInvoices,
     required this.openFolder,
+    required this.download,
+    required this.reportDownloaded,
     required this.fileMissing,
     required this.adminLoginTitle,
     required this.usernameLabel,
@@ -269,6 +271,8 @@ class AppStrings {
   final String searchHint;
   final String noInvoices;
   final String openFolder;
+  final String download;
+  final String reportDownloaded;
   final String fileMissing;
 
   // Administración
@@ -477,6 +481,8 @@ class AppStrings {
     searchHint: 'Buscar por matrícula o número de factura',
     noInvoices: 'No hay facturas registradas.',
     openFolder: 'Abrir carpeta',
+    download: 'Descargar',
+    reportDownloaded: 'Reporte descargado:',
     fileMissing: 'El archivo de la factura no se encontró en el disco.',
     adminLoginTitle: 'Acceso administrativo',
     usernameLabel: 'Usuario',
@@ -649,6 +655,8 @@ class AppStrings {
     searchHint: 'Search by registration or invoice number',
     noInvoices: 'No invoices recorded.',
     openFolder: 'Open folder',
+    download: 'Download',
+    reportDownloaded: 'Report downloaded:',
     fileMissing: 'The invoice file was not found on disk.',
     adminLoginTitle: 'Admin access',
     usernameLabel: 'Username',

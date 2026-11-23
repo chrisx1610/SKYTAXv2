@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -22,6 +23,18 @@ class AppPaths {
   final String reportes;
 
   static Future<AppPaths> resolve() async {
+    // El navegador no tiene sistema de archivos: la base de datos vive en
+    // IndexedDB y facturas y reportes se entregan como descargas. Las rutas
+    // quedan como nombres lógicos, sin uso real.
+    if (kIsWeb) {
+      return const AppPaths(
+        base: 'web',
+        data: 'web',
+        logs: 'web',
+        facturas: 'web',
+        reportes: 'web',
+      );
+    }
     final String support = (await getApplicationSupportDirectory()).path;
     final String documents = (await getApplicationDocumentsDirectory()).path;
     final String skyTaxDocs = p.join(documents, 'SkyTax');

@@ -187,6 +187,34 @@ flutter run                 # Android (dispositivo o emulador)
 flutter run -d windows      # Windows
 ```
 
+### Ejecutar en el navegador (web)
+
+```bash
+flutter run -d chrome       # desarrollo, con recarga en caliente
+flutter build web           # versión publicable en build/web/
+```
+
+En web la aplicación funciona igual, con estas diferencias:
+
+- **Base de datos** — SQLite compilado a WebAssembly (`web/sqlite3.wasm` y
+  `web/sqflite_sw.js`), con los datos guardados en IndexedDB **dentro del
+  navegador de cada visitante**. Borrar los datos del sitio borra la base.
+  Si se actualiza `sqflite_common_ffi_web`, hay que regenerar esos dos
+  archivos con `dart run sqflite_common_ffi_web:setup`.
+- **Facturas** — no se escribe ningún `.txt`: el visor las reconstruye desde la
+  base de datos y ofrece el botón **Descargar**.
+- **Reportes PDF** — se entregan como descarga del navegador.
+- **Configuración del terminal** — en el almacenamiento local del navegador en
+  lugar de `config.json`.
+- **Log** — solo en la consola del navegador (F12).
+
+`build/web/` es un sitio estático: sirve cualquier hosting estático
+(GitHub Pages, Netlify, Firebase Hosting). Para probarlo localmente:
+
+```bash
+cd build/web && python -m http.server 8080
+```
+
 ### Compilar para Android
 
 ```bash

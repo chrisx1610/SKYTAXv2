@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/logging/app_logger.dart';
 
@@ -39,16 +41,28 @@ class LocalConfig {
 }
 
 /// Lectura y escritura de [LocalConfig] en disco.
+///
+/// En el navegador no hay disco: el mismo JSON se guarda en el almacenamiento
+/// local del navegador bajo la clave [_webKey].
 class LocalConfigStore {
   LocalConfigStore({required this.baseDirectory});
 
   final String baseDirectory;
 
+  static const String _webKey = 'skytax_config';
+
   File get _file => File(p.join(baseDirectory, 'config.json'));
 
   Future<LocalConfig> load() async {
     try {
-      if (await _file.exists()) {
+      if (kIsWeb) {
+        final String? raw =
+            (await SharedPreferences.getInstance()).getString(_webKey);
+        if (raw != null) {
+          return LocalConfig.fromJson(
+              jsonDecode(raw) as Map<String, Object?>);
+        }
+      } else if (await _file.exists()) {
         final Map<String, Object?> json =
             jsonDecode(await _file.readAsString()) as Map<String, Object?>;
         return LocalConfig.fromJson(json);
@@ -60,9 +74,13 @@ class LocalConfigStore {
   }
 
   Future<void> save(LocalConfig config) async {
+    final String json =
+        const JsonEncoder.withIndent('  ').convert(config.toJson());
+    if (kIsWeb) {
+      await (await SharedPreferences.getInstance()).setString(_webKey, json);
+      return;
+    }
     await _file.parent.create(recursive: true);
-    await _file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(config.toJson()),
-    );
+    await _file.writeAsString(json);
   }
 }

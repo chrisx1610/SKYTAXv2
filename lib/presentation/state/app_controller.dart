@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/app_paths.dart';
@@ -49,7 +50,11 @@ class AppController extends ChangeNotifier {
     auditLog = AuditRepository(_dbase);
     dosaTariffs = DosaTariffRepository(_dbase);
     pendingPayments = PendingPaymentRepository(_dbase);
-    invoiceOutput = TxtInvoiceOutput(directory: paths.facturas);
+    // En el navegador no hay carpeta donde escribir el TXT: la factura se
+    // reconstruye desde la base de datos y se descarga a pedido.
+    invoiceOutput = kIsWeb
+        ? const WebInvoiceOutput()
+        : TxtInvoiceOutput(directory: paths.facturas);
   }
 
   final AppPaths paths;

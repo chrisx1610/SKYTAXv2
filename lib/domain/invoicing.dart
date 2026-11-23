@@ -124,3 +124,19 @@ class TxtInvoiceOutput implements InvoiceOutput {
     return file.path;
   }
 }
+
+/// Implementación para el navegador, que no tiene sistema de archivos.
+///
+/// No escribe nada: la factura queda en la base de datos y el visor la
+/// reconstruye desde allí, con un botón para descargarla como `.txt`.
+/// Devuelve una ruta lógica que identifica el documento.
+class WebInvoiceOutput implements InvoiceOutput {
+  const WebInvoiceOutput();
+
+  /// Prefijo de las rutas lógicas de facturas emitidas en web.
+  static const String scheme = 'web:';
+
+  @override
+  Future<String> emit(Invoice invoice, AppStrings strings) async =>
+      '$scheme${invoice.number}.txt';
+}

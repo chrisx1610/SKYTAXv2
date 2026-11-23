@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/i18n/app_strings.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/platform/file_download.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/invoice_repository.dart';
@@ -412,9 +414,27 @@ class _ReportsSectionState extends State<ReportsSection> {
         ),
       );
 
+      final String stamp = DateFormat('yyyyMMdd-HHmmss').format(now);
+
+      // En el navegador no hay carpeta de reportes: el PDF se entrega como
+      // descarga y el propio navegador decide dónde guardarlo.
+      if (kIsWeb) {
+        final String fileName = 'REPORTE-$stamp.pdf';
+        await downloadFile(
+          await doc.save(),
+          fileName: fileName,
+          mimeType: 'application/pdf',
+        );
+        await controller.audit('REPORTE', 'Descargado $fileName');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${s.reportDownloaded} $fileName')),
+        );
+        return;
+      }
+
       final Directory dir = Directory(controller.paths.reportes);
       await dir.create(recursive: true);
-      final String stamp = DateFormat('yyyyMMdd-HHmmss').format(now);
       final File file = File(p.join(dir.path, 'REPORTE-$stamp.pdf'));
       await file.writeAsBytes(await doc.save());
       await controller.audit('REPORTE', 'Generado ${file.path}');
